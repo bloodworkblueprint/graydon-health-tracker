@@ -1,0 +1,2685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graydon Ursel — Health Command Center</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg-dark: #0a0e1a;
+            --bg-card: rgba(255,255,255,0.05);
+            --bg-card-hover: rgba(255,255,255,0.08);
+            --accent-blue: #4facfe;
+            --accent-green: #43e97b;
+            --accent-orange: #f7971e;
+            --accent-red: #f5576c;
+            --accent-purple: #a855f7;
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255,255,255,0.7);
+            --text-muted: rgba(255,255,255,0.4);
+            --border: rgba(255,255,255,0.1);
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0a0e1a 0%, #1a1f35 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+        /* ── Navigation ── */
+        .nav {
+            position: sticky; top: 0; z-index: 100;
+            background: rgba(10,14,26,0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 20px;
+        }
+        .nav-inner {
+            max-width: 1500px; margin: 0 auto;
+            display: flex; align-items: center; gap: 8px;
+            overflow-x: auto; scrollbar-width: none;
+        }
+        .nav-inner::-webkit-scrollbar { display: none; }
+        .nav-brand {
+            font-weight: 700; font-size: 14px;
+            color: var(--accent-blue);
+            white-space: nowrap; padding: 16px 12px 16px 0;
+            border-right: 1px solid var(--border);
+            margin-right: 8px;
+        }
+        .nav-tab {
+            padding: 16px 16px;
+            font-size: 13px; font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer; white-space: nowrap;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .nav-tab:hover { color: var(--text-primary); }
+        .nav-tab.active {
+            color: var(--accent-blue);
+            border-bottom-color: var(--accent-blue);
+        }
+        /* ── Layout ── */
+        .container { max-width: 1500px; margin: 0 auto; padding: 24px 20px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        /* ── Cards ── */
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .card-title {
+            font-size: 16px; font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+        .card-subtitle {
+            font-size: 12px; color: var(--text-muted);
+            margin-top: -12px; margin-bottom: 16px;
+        }
+        /* ── Grid layouts ── */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+        @media (max-width: 1000px) {
+            .grid-3, .grid-4 { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 600px) {
+            .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+        }
+        /* ── Stat boxes ── */
+        .stat-box {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+        .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 8px; }
+        .stat-value { font-size: 32px; font-weight: 700; }
+        .stat-sub { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+        .stat-value.green { color: var(--accent-green); }
+        .stat-value.blue { color: var(--accent-blue); }
+        .stat-value.orange { color: var(--accent-orange); }
+        .stat-value.red { color: var(--accent-red); }
+        .stat-value.purple { color: var(--accent-purple); }
+        /* ── Tags / Badges ── */
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-green { background: rgba(67,233,123,0.15); color: #43e97b; }
+        .badge-orange { background: rgba(247,151,30,0.15); color: #f7971e; }
+        .badge-red { background: rgba(245,87,108,0.15); color: #f5576c; }
+        .badge-blue { background: rgba(79,172,254,0.15); color: #4facfe; }
+        .badge-purple { background: rgba(168,85,247,0.15); color: #a855f7; }
+        /* ── Tables ── */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .data-table th {
+            text-align: left;
+            padding: 10px 12px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border);
+        }
+        .data-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            color: var(--text-secondary);
+        }
+        .data-table tr:hover td { background: rgba(255,255,255,0.02); }
+        /* ── Progress bars ── */
+        .progress-bar {
+            background: rgba(255,255,255,0.08);
+            border-radius: 8px;
+            height: 8px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 8px;
+            transition: width 1s ease;
+        }
+        /* ── Section headers ── */
+        .section-header {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        /* ── Call log cards ── */
+        .call-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .call-date { font-size: 12px; color: var(--accent-blue); font-weight: 600; margin-bottom: 8px; }
+        .call-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+        .call-body { font-size: 13px; color: var(--text-secondary); line-height: 1.7; }
+        .call-body strong { color: var(--text-primary); }
+        .call-actions { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+        .call-actions li { font-size: 13px; color: var(--accent-green); margin: 4px 0; list-style: none; }
+        .call-actions li::before { content: "→ "; color: var(--text-muted); }
+        /* ── Supplement cards ── */
+        .supp-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+        }
+        .supp-name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+        .supp-dose { font-size: 12px; color: var(--accent-blue); }
+        .supp-timing { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+        .supp-category { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 8px; }
+        /* ── Charts ── */
+        .chart-container { position: relative; width: 100%; }
+        .chart-container canvas { max-height: 350px; }
+        /* ── Goal tracker ── */
+        .goal-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 12px;
+        }
+        .goal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .goal-title { font-weight: 600; font-size: 14px; }
+        .goal-progress-text { font-size: 12px; color: var(--accent-blue); font-weight: 600; }
+        /* ── Blood marker row ── */
+        .marker-row {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+        .marker-name { flex: 0 0 180px; font-size: 13px; font-weight: 500; }
+        .marker-value { flex: 0 0 80px; font-size: 14px; font-weight: 700; text-align: right; }
+        .marker-range { flex: 1; }
+        .marker-ref { flex: 0 0 140px; font-size: 11px; color: var(--text-muted); text-align: right; }
+        .range-bar {
+            position: relative;
+            height: 6px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 3px;
+        }
+        .range-optimal {
+            position: absolute;
+            height: 100%;
+            background: rgba(67,233,123,0.25);
+            border-radius: 3px;
+        }
+        .range-dot {
+            position: absolute;
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            top: -3px;
+            transform: translateX(-50%);
+        }
+        /* ── Oura embed ring scores ── */
+        .ring-score {
+            width: 100px; height: 100px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 28px; font-weight: 700;
+            margin: 0 auto 10px;
+        }
+        .ring-readiness { background: conic-gradient(#43e97b calc(var(--pct) * 1%), rgba(255,255,255,0.08) 0); }
+        .ring-sleep { background: conic-gradient(#4facfe calc(var(--pct) * 1%), rgba(255,255,255,0.08) 0); }
+        .ring-activity { background: conic-gradient(#f7971e calc(var(--pct) * 1%), rgba(255,255,255,0.08) 0); }
+        .ring-inner {
+            width: 80px; height: 80px;
+            border-radius: 50%;
+            background: #0f1325;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 26px; font-weight: 700;
+        }
+        /* ── Scrollable wrapper ── */
+        .scroll-x { overflow-x: auto; }
+        .scroll-x::-webkit-scrollbar { height: 4px; }
+        .scroll-x::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+        /* ── Weight chart specific ── */
+        .weight-highlight {
+            display: flex; align-items: baseline; gap: 8px;
+        }
+        .weight-current { font-size: 48px; font-weight: 700; color: var(--accent-blue); }
+        .weight-unit { font-size: 16px; color: var(--text-muted); }
+        .weight-change { font-size: 14px; padding: 4px 10px; border-radius: 20px; }
+        /* Collapse sections */
+        .collapse-toggle { cursor: pointer; user-select: none; }
+        .collapse-content { max-height: 0; overflow: hidden; transition: max-height 0.3s; }
+        .collapse-content.open { max-height: 5000px; }
+        .chevron { transition: transform 0.2s; display: inline-block; }
+        .chevron.open { transform: rotate(90deg); }
+    </style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="nav">
+    <div class="nav-inner">
+        <div class="nav-brand">GRAYDON URSEL</div>
+        <div class="nav-tab active" onclick="switchTab('dashboard')">Dashboard</div>
+        <div class="nav-tab" onclick="switchTab('oura')">Oura Ring</div>
+        <div class="nav-tab" onclick="switchTab('body')">Body Composition</div>
+        <div class="nav-tab" onclick="switchTab('bloodwork')">Bloodwork</div>
+        <div class="nav-tab" onclick="switchTab('coaching')">Coaching Log</div>
+        <div class="nav-tab" onclick="switchTab('supplements')">Supps & Meds</div>
+        <div class="nav-tab" onclick="switchTab('goals')">Goals & Blueprint</div>
+    </div>
+</nav>
+
+<div class="container">
+
+<!-- ═══════════════════════════ TAB 1: DASHBOARD ═══════════════════════════ -->
+<div id="tab-dashboard" class="tab-content active">
+    <div class="section-header">Dashboard Overview</div>
+
+    <!-- Client Info Bar -->
+    <div class="card" style="display:flex; flex-wrap:wrap; gap:24px; align-items:center;">
+        <div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Client</div>
+            <div style="font-size:18px;font-weight:700;">Graydon Ursel</div>
+        </div>
+        <div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Age</div>
+            <div style="font-weight:600;">30</div>
+        </div>
+        <div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Location</div>
+            <div style="font-weight:600;">Austin, TX</div>
+        </div>
+        <div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Program Start</div>
+            <div style="font-weight:600;">Feb 25, 2026</div>
+        </div>
+        <div>
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Day</div>
+            <div style="font-weight:600;color:var(--accent-blue);" id="program-day">19</div>
+        </div>
+        <div style="margin-left:auto;">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Phase</div>
+            <div><span class="badge badge-blue">Phase 1: Foundation Reset</span></div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="grid-4" style="margin-bottom:20px;">
+        <div class="stat-box">
+            <div class="stat-label">Current Weight</div>
+            <div class="stat-value blue">179.2<span style="font-size:14px;color:var(--text-muted);"> lbs</span></div>
+            <div class="stat-sub">↓ 5.8 lbs from start</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Body Fat</div>
+            <div class="stat-value orange">18.7<span style="font-size:14px;color:var(--text-muted);">%</span></div>
+            <div class="stat-sub">DEXA Mar 6 → Target 12%</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Total Testosterone</div>
+            <div class="stat-value" style="color:#f7c948;">639<span style="font-size:14px;color:var(--text-muted);"> ng/dL</span></div>
+            <div class="stat-sub">Dec '25 → Target 800+</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Oura Readiness</div>
+            <div class="stat-value green">82</div>
+            <div class="stat-sub">Today, Mar 16</div>
+        </div>
+    </div>
+
+    <!-- Weekly Non-Negotiables -->
+    <div class="card" style="border:1px solid rgba(67,233,123,0.25);background:linear-gradient(135deg, rgba(67,233,123,0.04) 0%, rgba(79,172,254,0.04) 100%);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <div style="font-size:14px;font-weight:700;color:var(--text-primary);">This Week's Non-Negotiables</div>
+            <span class="badge badge-green" style="font-size:10px;">Week of Mar 16</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:10px;">
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid var(--accent-green);">
+                <div style="font-size:22px;">⚖️</div>
+                <div>
+                    <div style="font-size:13px;font-weight:700;color:var(--text-primary);">177 lbs by Mar 22</div>
+                    <div style="font-size:11px;color:var(--text-muted);">Lose 2 lbs this week</div>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid var(--accent-blue);">
+                <div style="font-size:22px;">🥩</div>
+                <div>
+                    <div style="font-size:13px;font-weight:700;color:var(--text-primary);">140g+ Protein Daily</div>
+                    <div style="font-size:11px;color:var(--text-muted);">Every meal counts — track it</div>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid var(--accent-orange);">
+                <div style="font-size:22px;">🔥</div>
+                <div>
+                    <div style="font-size:13px;font-weight:700;color:var(--text-primary);">2,150–2,250 Calories</div>
+                    <div style="font-size:11px;color:var(--text-muted);">Log every meal · stay in deficit</div>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid var(--accent-purple);">
+                <div style="font-size:22px;">😴</div>
+                <div>
+                    <div style="font-size:13px;font-weight:700;color:var(--text-primary);">7+ Hours of Sleep</div>
+                    <div style="font-size:11px;color:var(--text-muted);">In bed by midnight · no exceptions</div>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(255,255,255,0.03);border-radius:10px;border-left:3px solid #f5576c;">
+                <div style="font-size:22px;">🚶</div>
+                <div>
+                    <div style="font-size:13px;font-weight:700;color:var(--text-primary);">7,500+ Steps Daily</div>
+                    <div style="font-size:11px;color:var(--text-muted);">Walk + ruck · increase NEAT</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Oura Scores + Weight Trend side by side -->
+    <div class="grid-2" style="align-items:stretch;">
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <div class="card-title" style="margin-bottom:0;">Oura Ring</div>
+                <select id="oura-dash-range" onchange="updateOuraDashboard()" style="padding:6px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:12px;cursor:pointer;">
+                    <option value="today">Today</option>
+                    <option value="7">Last 7 Days</option>
+                    <option value="30">Last 30 Days</option>
+                </select>
+            </div>
+            <div id="oura-dash-period-label" style="font-size:11px;color:var(--text-muted);text-align:center;margin-bottom:12px;">Mar 16, 2026</div>
+            <!-- Score rings -->
+            <div style="display:flex; justify-content:space-around; text-align:center; margin-bottom:16px;">
+                <div>
+                    <div class="ring-score ring-readiness" style="--pct:82" id="dash-ring-readiness"><div class="ring-inner" id="dash-readiness-val">82</div></div>
+                    <div style="font-size:12px;color:var(--text-muted);">Readiness</div>
+                </div>
+                <div>
+                    <div class="ring-score ring-sleep" style="--pct:83" id="dash-ring-sleep"><div class="ring-inner" id="dash-sleep-val">83</div></div>
+                    <div style="font-size:12px;color:var(--text-muted);">Sleep</div>
+                </div>
+                <div>
+                    <div class="ring-score ring-activity" style="--pct:79" id="dash-ring-activity"><div class="ring-inner" id="dash-activity-val">79</div></div>
+                    <div style="font-size:12px;color:var(--text-muted);">Activity</div>
+                </div>
+            </div>
+            <!-- Key vitals grid -->
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px;">
+                <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:10px;text-align:center;">
+                    <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Lowest HR</div>
+                    <div style="font-size:18px;font-weight:700;color:var(--accent-blue);" id="dash-hr">55</div>
+                    <div style="font-size:10px;color:var(--text-muted);">bpm</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:10px;text-align:center;">
+                    <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Avg HRV</div>
+                    <div style="font-size:18px;font-weight:700;color:var(--accent-green);" id="dash-hrv">32</div>
+                    <div style="font-size:10px;color:var(--text-muted);">ms</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:10px;text-align:center;">
+                    <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Sleep</div>
+                    <div style="font-size:18px;font-weight:700;color:var(--accent-blue);" id="dash-sleep-hrs">4.4</div>
+                    <div style="font-size:10px;color:var(--text-muted);">hours</div>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+                <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:10px;text-align:center;">
+                    <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Deep</div>
+                    <div style="font-size:16px;font-weight:700;color:#6366f1;" id="dash-deep">1.4</div>
+                    <div style="font-size:10px;color:var(--text-muted);">hrs</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:10px;text-align:center;">
+                    <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">REM</div>
+                    <div style="font-size:16px;font-weight:700;color:var(--accent-blue);" id="dash-rem">1.2</div>
+                    <div style="font-size:10px;color:var(--text-muted);">hrs</div>
+                </div>
+                <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:10px;text-align:center;">
+                    <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Steps</div>
+                    <div style="font-size:16px;font-weight:700;color:var(--accent-orange);" id="dash-steps">11,745</div>
+                    <div style="font-size:10px;color:var(--text-muted);"> </div>
+                </div>
+                <div style="background:rgba(255,255,255,0.03);border-radius:8px;padding:10px;text-align:center;">
+                    <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Cals</div>
+                    <div style="font-size:16px;font-weight:700;color:var(--accent-red);" id="dash-cals">583</div>
+                    <div style="font-size:10px;color:var(--text-muted);">active</div>
+                </div>
+            </div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;">
+            <div class="card-title">Weight Trend</div>
+            <div class="chart-container" style="flex:1;min-height:0;position:relative;"><canvas id="dashWeightChart" style="max-height:none !important;"></canvas></div>
+        </div>
+    </div>
+
+    <!-- Key Bloodwork Flags -->
+    <div class="card">
+        <div class="card-title">Key Bloodwork Flags <span style="font-size:12px;color:var(--text-muted);font-weight:400;">(Dec 2025)</span></div>
+        <div class="grid-3" style="gap:12px;">
+            <div class="stat-box">
+                <div class="stat-label">Estradiol</div>
+                <div class="stat-value red">44<span style="font-size:12px;color:var(--text-muted);"> pg/mL</span></div>
+                <div class="stat-sub"><span class="badge badge-red">HIGH</span> Optimal: 10-30</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Total T</div>
+                <div class="stat-value" style="color:#f7c948;">639<span style="font-size:12px;color:var(--text-muted);"> ng/dL</span></div>
+                <div class="stat-sub"><span class="badge badge-orange">↓</span> Was 745 Jun '24</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Free T</div>
+                <div class="stat-value red">114.2<span style="font-size:12px;color:var(--text-muted);"> pg/mL</span></div>
+                <div class="stat-sub"><span class="badge badge-red">LOW</span> Was 254.7 Jun '24</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">RBC</div>
+                <div class="stat-value orange">4.63<span style="font-size:12px;color:var(--text-muted);"> M/µL</span></div>
+                <div class="stat-sub"><span class="badge badge-orange">↓</span> Was 4.9→4.8→5.18→4.63</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Cortisol AM</div>
+                <div class="stat-value orange">13.3<span style="font-size:12px;color:var(--text-muted);"> µg/dL</span></div>
+                <div class="stat-sub"><span class="badge badge-orange">ELEVATED</span> Fluctuating</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Vitamin D</div>
+                <div class="stat-value orange">40<span style="font-size:12px;color:var(--text-muted);"> ng/mL</span></div>
+                <div class="stat-sub"><span class="badge badge-orange">LOW</span> Was 61→66→52→40</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Protocol Summary -->
+    <div class="card">
+        <div class="card-title">Active Protocol</div>
+        <div class="grid-2" style="gap:12px;">
+            <div>
+                <div style="font-size:12px;color:var(--accent-purple);font-weight:600;margin-bottom:8px;">MEDICATIONS</div>
+                <div style="font-size:13px;color:var(--text-secondary);line-height:2;">
+                    Enclomiphene 25mg daily<br>
+                    Tirzepatide + NAD 10 units/wk (1mg)<br>
+                    DIM 300mg daily<br>
+                    Sermorelin 15 units 5x/wk
+                </div>
+                <div style="font-size:12px;color:var(--accent-blue);font-weight:600;margin-top:12px;margin-bottom:4px;">TO ADD</div>
+                <div style="font-size:13px;color:var(--text-muted);line-height:2;">
+                    Tadalafil (Cialis) 2.5mg daily — order 5mg tabs
+                </div>
+            </div>
+            <div>
+                <div style="font-size:12px;color:var(--accent-green);font-weight:600;margin-bottom:8px;">DAILY TARGETS</div>
+                <div style="font-size:13px;color:var(--text-secondary);line-height:2;">
+                    Protein: 140g+<br>
+                    Carbs: 180–200g<br>
+                    Fat: 100g<br>
+                    Calories: 2,150–2,250<br>
+                    Steps: 7,500–10,000
+                </div>
+                <div style="font-size:12px;color:var(--accent-orange);font-weight:600;margin-top:12px;margin-bottom:4px;">WEEKLY GOALS (Mar 16 call)</div>
+                <div style="font-size:13px;color:var(--text-secondary);line-height:2;">
+                    Weight target: 177 lbs by Mar 22<br>
+                    Consistent calorie tracking<br>
+                    Strategic refeed days<br>
+                    Strict bedtime routine
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Weekly Analysis Section ── -->
+    <div class="card" id="weekly-analysis-card" style="border-top:3px solid var(--accent-purple);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <div class="card-title" style="margin-bottom:0;">Weekly Analysis <span style="font-size:12px;color:var(--text-muted);font-weight:400;">— Updated after Friday coaching calls</span></div>
+            <div style="font-size:11px;color:var(--accent-purple);font-weight:600;" id="analysis-update-date">Last updated: Mar 14, 2026</div>
+        </div>
+
+        <!-- Period Comparison Table -->
+        <div style="overflow-x:auto;margin-bottom:20px;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:700px;">
+                <thead>
+                    <tr style="border-bottom:2px solid var(--border);">
+                        <th style="text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);width:160px;">Metric</th>
+                        <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Pre-Coaching<br><span style="font-size:9px;text-transform:none;">Dec 26 – Feb 26</span></th>
+                        <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Last 30 Days</th>
+                        <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);">Last 7 Days</th>
+                        <th style="text-align:center;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text-muted);width:120px;">vs Baseline</th>
+                    </tr>
+                </thead>
+                <tbody id="analysis-table-body">
+                    <!-- Populated by JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Trend Insights -->
+        <div class="grid-2" style="gap:16px;margin-bottom:20px;">
+            <div style="background:rgba(67,233,123,0.06);border:1px solid rgba(67,233,123,0.15);border-radius:12px;padding:16px;">
+                <div style="font-size:12px;color:var(--accent-green);font-weight:600;margin-bottom:10px;">WINS & PROGRESS</div>
+                <div id="analysis-wins" style="font-size:13px;color:var(--text-secondary);line-height:1.8;"></div>
+            </div>
+            <div style="background:rgba(247,151,30,0.06);border:1px solid rgba(247,151,30,0.15);border-radius:12px;padding:16px;">
+                <div style="font-size:12px;color:var(--accent-orange);font-weight:600;margin-bottom:10px;">WATCH LIST & ACTION ITEMS</div>
+                <div id="analysis-watch" style="font-size:13px;color:var(--text-secondary);line-height:1.8;"></div>
+            </div>
+        </div>
+
+        <!-- Coaching Call Subjective Feedback -->
+        <div style="background:rgba(168,85,247,0.06);border:1px solid rgba(168,85,247,0.15);border-radius:12px;padding:16px;margin-bottom:16px;">
+            <div style="font-size:12px;color:var(--accent-purple);font-weight:600;margin-bottom:10px;">LATEST COACHING CALL FEEDBACK <span style="font-weight:400;color:var(--text-muted);">— Mar 16, 2026</span></div>
+            <div id="analysis-coaching" style="font-size:13px;color:var(--text-secondary);line-height:1.8;"></div>
+        </div>
+
+        <!-- Week-over-Week Summary -->
+        <div style="background:rgba(79,172,254,0.06);border:1px solid rgba(79,172,254,0.15);border-radius:12px;padding:16px;">
+            <div style="font-size:12px;color:var(--accent-blue);font-weight:600;margin-bottom:10px;">COACH'S ANALYSIS</div>
+            <div id="analysis-summary" style="font-size:13px;color:var(--text-secondary);line-height:1.8;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════ TAB 2: OURA RING ═══════════════════════════ -->
+<div id="tab-oura" class="tab-content">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <div class="section-header" style="margin-bottom:0;border-bottom:none;padding-bottom:0;">Oura Ring Data</div>
+        <select id="oura-tab-range" onchange="updateOuraTab()" style="padding:8px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:13px;cursor:pointer;">
+            <option value="today">Today</option>
+            <option value="7">Last 7 Days</option>
+            <option value="30">Last 30 Days</option>
+        </select>
+    </div>
+    <div id="oura-tab-period" style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Mar 16, 2026</div>
+
+    <div class="grid-3" style="margin-bottom:20px;">
+        <div class="stat-box">
+            <div class="ring-score ring-readiness" style="--pct:82" id="oura-tab-ring-readiness"><div class="ring-inner" id="oura-readiness">82</div></div>
+            <div class="stat-label">Readiness</div>
+        </div>
+        <div class="stat-box">
+            <div class="ring-score ring-sleep" style="--pct:83" id="oura-tab-ring-sleep"><div class="ring-inner" id="oura-sleep">83</div></div>
+            <div class="stat-label">Sleep Score</div>
+        </div>
+        <div class="stat-box">
+            <div class="ring-score ring-activity" style="--pct:79" id="oura-tab-ring-activity"><div class="ring-inner" id="oura-activity">79</div></div>
+            <div class="stat-label">Activity</div>
+        </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px;">
+        <div class="stat-box">
+            <div class="stat-label">Lowest HR</div>
+            <div class="stat-value blue" id="oura-tab-hr">55<span style="font-size:12px;color:var(--text-muted);"> bpm</span></div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Avg HRV</div>
+            <div class="stat-value green" id="oura-tab-hrv">32<span style="font-size:12px;color:var(--text-muted);"> ms</span></div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Total Sleep</div>
+            <div class="stat-value blue" id="oura-tab-sleep-hrs">4.4<span style="font-size:12px;color:var(--text-muted);"> hrs</span></div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Deep Sleep</div>
+            <div class="stat-value purple" id="oura-tab-deep">1.4<span style="font-size:12px;color:var(--text-muted);"> hrs</span></div>
+        </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+        <div class="stat-box">
+            <div class="stat-label">REM Sleep</div>
+            <div class="stat-value blue" id="oura-tab-rem">1.2<span style="font-size:12px;color:var(--text-muted);"> hrs</span></div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Steps</div>
+            <div class="stat-value orange" id="oura-tab-steps">11,745</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Active Calories</div>
+            <div class="stat-value red" id="oura-tab-cals">583</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-label">Resp Rate</div>
+            <div class="stat-value blue" id="oura-tab-resp">13.9<span style="font-size:12px;color:var(--text-muted);"> br/min</span></div>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <div class="card">
+            <div class="card-title">Score Trends (90 Days)</div>
+            <div class="chart-container"><canvas id="ouraScoresChart"></canvas></div>
+        </div>
+        <div class="card">
+            <div class="card-title">Sleep Duration</div>
+            <div class="chart-container"><canvas id="ouraSleepDurChart"></canvas></div>
+        </div>
+    </div>
+    <div class="grid-2">
+        <div class="card">
+            <div class="card-title">Heart Rate & HRV</div>
+            <div class="chart-container"><canvas id="ouraHrHrvChart"></canvas></div>
+        </div>
+        <div class="card">
+            <div class="card-title">Activity & Steps</div>
+            <div class="chart-container"><canvas id="ouraStepsChart"></canvas></div>
+        </div>
+    </div>
+
+    <div class="card" style="text-align:center;">
+        <button onclick="syncOuraData()" style="padding:12px 32px;background:var(--accent-blue);color:#000;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:14px;">
+            Sync Live Oura Data
+        </button>
+        <div id="oura-sync-status" style="margin-top:8px;font-size:12px;color:var(--text-muted);"></div>
+        <div style="margin-top:8px;font-size:11px;color:var(--text-muted);">Requires local server: <code>python3 -m http.server 8080</code></div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════ TAB 3: BODY COMPOSITION ═══════════════════════════ -->
+<div id="tab-body" class="tab-content">
+    <div class="section-header">Body Composition</div>
+
+    <!-- Current Weight -->
+    <div class="card">
+        <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
+            <div>
+                <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Current Weight</div>
+                <div class="weight-highlight">
+                    <span class="weight-current">179.2</span>
+                    <span class="weight-unit">lbs</span>
+                    <span class="weight-change badge-green" style="background:rgba(67,233,123,0.15);color:#43e97b;">↓ 5.8 lbs</span>
+                </div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Since Feb 25 start (185 lbs) · Mar 16</div>
+            </div>
+            <div style="margin-left:auto;text-align:right;">
+                <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;">Target</div>
+                <div style="font-size:24px;font-weight:700;color:var(--accent-green);">170-175 lbs</div>
+                <div style="font-size:12px;color:var(--text-muted);">4-5 lbs to go</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <!-- Weight Chart -->
+        <div class="card">
+            <div class="card-title">Weight Log</div>
+            <div class="chart-container"><canvas id="weightChart"></canvas></div>
+        </div>
+        <!-- Body Fat Progress -->
+        <div class="card" style="display:flex;flex-direction:column;">
+            <div class="card-title">Body Fat % Journey</div>
+            <!-- Current BF large display -->
+            <div style="text-align:center;margin-bottom:20px;">
+                <div style="font-size:56px;font-weight:700;color:var(--accent-orange);">18.7%</div>
+                <div style="font-size:12px;color:var(--text-muted);">DEXA · Mar 6, 2026</div>
+            </div>
+            <!-- Visual range bar -->
+            <div style="padding:0 8px;flex:1;display:flex;flex-direction:column;justify-content:center;">
+                <!-- The scale from 10% to 25% -->
+                <div style="position:relative;margin-bottom:32px;">
+                    <!-- Background track -->
+                    <div style="height:20px;border-radius:10px;background:linear-gradient(90deg, rgba(67,233,123,0.3) 0%, rgba(67,233,123,0.15) 33%, rgba(247,151,30,0.15) 58%, rgba(245,87,108,0.15) 100%);position:relative;">
+                        <!-- Optimal zone highlight (10-15%) -->
+                        <div style="position:absolute;left:0%;width:33%;height:100%;border-radius:10px 0 0 10px;border:1px solid rgba(67,233,123,0.3);border-right:1px dashed rgba(67,233,123,0.4);"></div>
+                        <!-- Current position marker (18.7% on a 10-25 scale = 58%) -->
+                        <div style="position:absolute;left:58%;top:-6px;transform:translateX(-50%);">
+                            <div style="width:4px;height:32px;background:var(--accent-orange);border-radius:2px;"></div>
+                        </div>
+                        <!-- Target position marker (12% on a 10-25 scale = 13.3%) -->
+                        <div style="position:absolute;left:13.3%;top:-6px;transform:translateX(-50%);">
+                            <div style="width:4px;height:32px;background:var(--accent-green);border-radius:2px;"></div>
+                        </div>
+                    </div>
+                    <!-- Labels below the bar -->
+                    <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:10px;color:var(--text-muted);">
+                        <span>10%</span><span>15%</span><span>20%</span><span>25%</span>
+                    </div>
+                    <!-- Marker labels -->
+                    <div style="position:absolute;left:13.3%;top:34px;transform:translateX(-50%);text-align:center;">
+                        <div style="font-size:11px;font-weight:700;color:var(--accent-green);">TARGET</div>
+                        <div style="font-size:13px;font-weight:700;color:var(--accent-green);">12%</div>
+                    </div>
+                    <div style="position:absolute;left:58%;top:34px;transform:translateX(-50%);text-align:center;">
+                        <div style="font-size:11px;font-weight:700;color:var(--accent-orange);">NOW</div>
+                        <div style="font-size:13px;font-weight:700;color:var(--accent-orange);">18.7%</div>
+                    </div>
+                </div>
+                <!-- Stats row -->
+                <div style="display:flex;justify-content:space-around;margin-top:28px;text-align:center;">
+                    <div>
+                        <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">To Lose</div>
+                        <div style="font-size:22px;font-weight:700;color:var(--accent-red);">6.7%</div>
+                        <div style="font-size:11px;color:var(--text-muted);">~12 lbs fat</div>
+                    </div>
+                    <div>
+                        <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Lean Mass</div>
+                        <div style="font-size:22px;font-weight:700;color:var(--accent-blue);">145.2</div>
+                        <div style="font-size:11px;color:var(--text-muted);">lbs (preserve)</div>
+                    </div>
+                    <div>
+                        <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">At Target</div>
+                        <div style="font-size:22px;font-weight:700;color:var(--accent-green);">~165</div>
+                        <div style="font-size:11px;color:var(--text-muted);">lbs at 12% BF</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DEXA Scan Results -->
+    <div class="card">
+        <div class="card-title">DEXA Scan Results <span style="font-size:12px;color:var(--text-muted);font-weight:400;">March 6, 2026</span></div>
+        <div class="grid-4" style="margin-bottom:16px;">
+            <div class="stat-box">
+                <div class="stat-label">Total Body Fat</div>
+                <div class="stat-value orange">18.7%</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Lean Mass</div>
+                <div class="stat-value blue">145.2<span style="font-size:12px;color:var(--text-muted);"> lbs</span></div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Fat Mass</div>
+                <div class="stat-value orange">33.5<span style="font-size:12px;color:var(--text-muted);"> lbs</span></div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Bone Mineral</div>
+                <div class="stat-value green">7.2<span style="font-size:12px;color:var(--text-muted);"> lbs</span></div>
+            </div>
+        </div>
+        <div class="card-title" style="font-size:14px;">Regional Body Fat Distribution</div>
+        <div class="chart-container"><canvas id="dexaChart"></canvas></div>
+    </div>
+
+    <!-- Progress Photos Comparison Tool -->
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+            <div class="card-title" style="margin-bottom:0;">Progress Photos</div>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <span style="font-size:12px;color:var(--text-muted);">View:</span>
+                <button id="view-compare-btn" onclick="setPhotoView('compare')" style="padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--accent-blue);background:var(--accent-blue);color:#000;">Compare</button>
+                <button id="view-all-btn" onclick="setPhotoView('all')" style="padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text-secondary);">All Photos</button>
+                <button id="view-upload-btn" onclick="setPhotoView('upload')" style="padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text-secondary);">+ Add</button>
+            </div>
+        </div>
+
+        <!-- COMPARE VIEW -->
+        <div id="photo-view-compare">
+            <!-- Comparison controls -->
+            <div style="display:flex;gap:16px;margin-bottom:16px;align-items:center;flex-wrap:wrap;">
+                <div style="flex:1;min-width:140px;">
+                    <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Before</div>
+                    <select id="compare-date-left" onchange="updateComparison()" style="width:100%;padding:8px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:13px;">
+                    </select>
+                </div>
+                <div style="font-size:18px;color:var(--text-muted);padding-top:16px;">vs</div>
+                <div style="flex:1;min-width:140px;">
+                    <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">After</div>
+                    <select id="compare-date-right" onchange="updateComparison()" style="width:100%;padding:8px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:13px;">
+                    </select>
+                </div>
+                <div style="flex:0 0 auto;padding-top:16px;">
+                    <div style="display:flex;gap:4px;">
+                        <button class="angle-btn active" data-angle="front" onclick="setCompareAngle('front')" style="padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--accent-blue);background:var(--accent-blue);color:#000;">Front</button>
+                        <button class="angle-btn" data-angle="side" onclick="setCompareAngle('side')" style="padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text-secondary);">Side</button>
+                        <button class="angle-btn" data-angle="back" onclick="setCompareAngle('back')" style="padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text-secondary);">Back</button>
+                    </div>
+                </div>
+            </div>
+            <!-- Side-by-side photos -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" id="compare-grid">
+                <div style="text-align:center;">
+                    <div id="compare-left-label" style="font-size:13px;font-weight:600;color:var(--accent-blue);margin-bottom:8px;">—</div>
+                    <div id="compare-left-img" style="border-radius:12px;overflow:hidden;background:rgba(255,255,255,0.03);aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);position:relative;">
+                        <div style="color:var(--text-muted);font-size:13px;">No photo loaded</div>
+                    </div>
+                </div>
+                <div style="text-align:center;">
+                    <div id="compare-right-label" style="font-size:13px;font-weight:600;color:var(--accent-green);margin-bottom:8px;">—</div>
+                    <div id="compare-right-img" style="border-radius:12px;overflow:hidden;background:rgba(255,255,255,0.03);aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;border:1px solid var(--border);position:relative;">
+                        <div style="color:var(--text-muted);font-size:13px;">No photo loaded</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alignment Controls -->
+            <div id="align-controls" style="display:none;margin-top:14px;padding:14px 16px;background:rgba(255,255,255,0.03);border-radius:12px;border:1px solid var(--border);">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                    <div style="font-size:12px;font-weight:600;color:var(--text-secondary);">ALIGN & SCALE PHOTOS</div>
+                    <button onclick="resetAlignment()" style="font-size:10px;padding:4px 10px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);cursor:pointer;">Reset</button>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                    <div>
+                        <div style="font-size:10px;color:var(--accent-blue);margin-bottom:6px;font-weight:600;">BEFORE</div>
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                            <span style="font-size:10px;color:var(--text-muted);width:44px;">Zoom</span>
+                            <input type="range" id="zoom-left" min="100" max="300" value="100" step="5" oninput="applyAlignment()" style="flex:1;accent-color:var(--accent-blue);height:4px;">
+                            <span id="zoom-left-val" style="font-size:10px;color:var(--text-muted);width:32px;text-align:right;">100%</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                            <span style="font-size:10px;color:var(--text-muted);width:44px;">↕ Shift</span>
+                            <input type="range" id="vshift-left" min="-150" max="150" value="0" step="2" oninput="applyAlignment()" style="flex:1;accent-color:var(--accent-blue);height:4px;">
+                            <span id="vshift-left-val" style="font-size:10px;color:var(--text-muted);width:32px;text-align:right;">0px</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:10px;color:var(--text-muted);width:44px;">↔ Shift</span>
+                            <input type="range" id="hshift-left" min="-150" max="150" value="0" step="2" oninput="applyAlignment()" style="flex:1;accent-color:var(--accent-blue);height:4px;">
+                            <span id="hshift-left-val" style="font-size:10px;color:var(--text-muted);width:32px;text-align:right;">0px</span>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size:10px;color:var(--accent-green);margin-bottom:6px;font-weight:600;">AFTER</div>
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                            <span style="font-size:10px;color:var(--text-muted);width:44px;">Zoom</span>
+                            <input type="range" id="zoom-right" min="100" max="300" value="100" step="5" oninput="applyAlignment()" style="flex:1;accent-color:var(--accent-green);height:4px;">
+                            <span id="zoom-right-val" style="font-size:10px;color:var(--text-muted);width:32px;text-align:right;">100%</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                            <span style="font-size:10px;color:var(--text-muted);width:44px;">↕ Shift</span>
+                            <input type="range" id="vshift-right" min="-150" max="150" value="0" step="2" oninput="applyAlignment()" style="flex:1;accent-color:var(--accent-green);height:4px;">
+                            <span id="vshift-right-val" style="font-size:10px;color:var(--text-muted);width:32px;text-align:right;">0px</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:10px;color:var(--text-muted);width:44px;">↔ Shift</span>
+                            <input type="range" id="hshift-right" min="-150" max="150" value="0" step="2" oninput="applyAlignment()" style="flex:1;accent-color:var(--accent-green);height:4px;">
+                            <span id="hshift-right-val" style="font-size:10px;color:var(--text-muted);width:32px;text-align:right;">0px</span>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top:10px;font-size:10px;color:var(--text-muted);line-height:1.5;">
+                    Zoom in on the smaller photo to match body size, then shift ↕↔ to align eyes & navel. The container clips overflow so you won't see edges. Settings save automatically per photo pair.
+                </div>
+            </div>
+        </div>
+
+        <!-- ALL PHOTOS VIEW -->
+        <div id="photo-view-all" style="display:none;">
+            <div id="photo-gallery-all" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;">
+            </div>
+            <div id="no-photos-msg" style="text-align:center;padding:40px;color:var(--text-muted);font-size:13px;">
+                No photos loaded yet.<br><br>
+                <button onclick="setPhotoView('upload')" style="padding:10px 24px;background:var(--accent-blue);color:#000;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;">Upload Progress Photos</button>
+                <div style="margin-top:8px;font-size:11px;">Photos are stored in your browser and will persist between sessions.</div>
+            </div>
+        </div>
+
+        <!-- UPLOAD VIEW -->
+        <div id="photo-view-upload" style="display:none;">
+            <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+                <div>
+                    <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Date</div>
+                    <select id="upload-date" style="padding:8px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:13px;">
+                        <option value="2026-02-25">Feb 25, 2026 (Start)</option>
+                        <option value="2026-03-06">Mar 6, 2026 (Week 1)</option>
+                        <option value="2026-03-13">Mar 13, 2026 (Week 2)</option>
+                        <option value="2026-03-16">Mar 16, 2026</option>
+                    </select>
+                </div>
+                <div>
+                    <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Angle</div>
+                    <select id="upload-angle" style="padding:8px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:13px;">
+                        <option value="front">Front</option>
+                        <option value="side">Side</option>
+                        <option value="back">Back</option>
+                    </select>
+                </div>
+            </div>
+            <div id="photo-drop-zone" style="border:2px dashed var(--border);border-radius:12px;padding:48px 24px;text-align:center;cursor:pointer;transition:all 0.2s;" ondragover="event.preventDefault();this.style.borderColor='var(--accent-blue)';this.style.background='rgba(79,172,254,0.05)';" ondragleave="this.style.borderColor='var(--border)';this.style.background='transparent';" ondrop="handlePhotoDrop(event)" onclick="document.getElementById('photo-input').click();">
+                <div style="font-size:32px;margin-bottom:8px;opacity:0.3;">📸</div>
+                <div style="font-size:14px;color:var(--text-secondary);margin-bottom:4px;">Drag & drop photos here, or click to browse</div>
+                <div style="font-size:11px;color:var(--text-muted);">Select the date and angle above, then drop the photo. You can upload multiple photos one at a time.</div>
+                <input type="file" id="photo-input" accept="image/*" multiple style="display:none;" onchange="handlePhotoSelect(event)">
+            </div>
+            <!-- Recently uploaded preview -->
+            <div id="upload-preview" style="margin-top:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;"></div>
+        </div>
+    </div>
+
+    <!-- Macros -->
+    <div class="card">
+        <div class="card-title">Daily Macro Targets</div>
+        <div class="grid-4">
+            <div class="stat-box">
+                <div class="stat-label">Calories</div>
+                <div class="stat-value blue">2,200</div>
+                <div class="stat-sub">±250 cal</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Protein</div>
+                <div class="stat-value green">140g+</div>
+                <div class="stat-sub">0.8g per lb target</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Carbs</div>
+                <div class="stat-value orange">180-200g</div>
+                <div class="stat-sub">Higher on lift days</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Fat</div>
+                <div class="stat-value purple">100g</div>
+                <div class="stat-sub">EVOO, nuts, avocado</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════ TAB 4: BLOODWORK ═══════════════════════════ -->
+<div id="tab-bloodwork" class="tab-content">
+    <div class="section-header">Bloodwork Lab <span style="font-size:14px;color:var(--text-muted);font-weight:400;">4 Draws: Mar '24 · Jun '24 · Mar '25 · Dec '25</span></div>
+
+    <!-- Hormone Panel — Individual Line Charts -->
+    <div class="card">
+        <div class="card-title">Total Testosterone</div>
+        <div class="chart-container"><canvas id="totalTChart"></canvas></div>
+    </div>
+    <div class="grid-2">
+        <div class="card">
+            <div class="card-title">Free Testosterone</div>
+            <div class="chart-container"><canvas id="freeTChart"></canvas></div>
+        </div>
+        <div class="card">
+            <div class="card-title">Estradiol (E2)</div>
+            <div class="chart-container"><canvas id="estradiolChart"></canvas></div>
+        </div>
+    </div>
+
+    <!-- hs-CRP Trend -->
+    <div class="card">
+        <div class="card-title">hs-CRP Inflammation Trend</div>
+        <div class="chart-container"><canvas id="crpChart"></canvas></div>
+    </div>
+
+    <!-- Metabolic Panel — Individual Line Charts -->
+    <div class="grid-2">
+        <div class="card">
+            <div class="card-title">Glucose</div>
+            <div class="chart-container"><canvas id="glucoseChart"></canvas></div>
+        </div>
+        <div class="card">
+            <div class="card-title">HbA1c</div>
+            <div class="chart-container"><canvas id="hba1cChart"></canvas></div>
+        </div>
+    </div>
+    <div class="grid-2">
+        <div class="card">
+            <div class="card-title">Insulin</div>
+            <div class="chart-container"><canvas id="insulinChart"></canvas></div>
+        </div>
+        <div class="card">
+            <div class="card-title">ApoB</div>
+            <div class="chart-container"><canvas id="apobChart"></canvas></div>
+        </div>
+    </div>
+
+    <!-- Thyroid — Individual Line Charts -->
+    <div class="grid-2">
+        <div class="card">
+            <div class="card-title">TSH</div>
+            <div class="chart-container"><canvas id="tshChart"></canvas></div>
+        </div>
+        <div class="card">
+            <div class="card-title">Free T4</div>
+            <div class="chart-container"><canvas id="freeT4Chart"></canvas></div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-title">Free T3</div>
+        <div class="chart-container"><canvas id="freeT3Chart"></canvas></div>
+    </div>
+
+    <!-- Full Bloodwork Table -->
+    <div class="card">
+        <div class="card-title collapse-toggle" onclick="toggleCollapse('bloodTable')">
+            <span class="chevron" id="bloodTable-chevron">▶</span> Full Bloodwork Comparison Table
+        </div>
+        <div class="collapse-content" id="bloodTable">
+            <div class="scroll-x">
+                <table class="data-table" id="fullBloodTable">
+                    <thead>
+                        <tr>
+                            <th>Marker</th>
+                            <th>Mar 2024</th>
+                            <th>Jun 2024</th>
+                            <th>Mar 2025</th>
+                            <th>Dec 2025</th>
+                            <th>Optimal Range</th>
+                            <th>Trend</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bloodTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════ TAB 5: COACHING LOG ═══════════════════════════ -->
+<div id="tab-coaching" class="tab-content">
+    <div class="section-header">Coaching Log <span style="font-size:14px;color:var(--text-muted);font-weight:400;">Fathom Call Notes</span></div>
+
+    <!-- Call 3: Mar 16 -->
+    <div class="call-card">
+        <div class="call-date">March 16, 2026 — Week 3 Check-in</div>
+        <div class="call-title">Weekly Health Call · <a href="https://fathom.video/calls/598521143?tab=summary" style="color:var(--accent-blue);font-size:13px;" target="_blank">View on Fathom ↗</a></div>
+        <div class="call-body">
+            <strong>Dashboard & Data Tracking:</strong> Reviewed new health dashboard together. Discussed integrating Graydon's spreadsheet and Oura Ring data into the tracker. Dashboard now live with weight, bloodwork, supplements, and goals.<br><br>
+            <strong>Weight:</strong> 179.2 lbs (down from 180 last week, low of 178.7 on Mar 13). Total loss: 5.8 lbs in 19 days.<br><br>
+            <strong>Nutrition Strategy:</strong> Emphasized consistent calorie tracking as the key driver. Discussed introducing occasional "refeed" days with higher carb intake to prevent metabolic adaptation and support training performance.<br><br>
+            <strong>Enclomiphene Update:</strong> Reviewed current protocol. Monitoring testosterone response — need to track dosage impact over time. Continue current dose and retest at next blood draw.<br><br>
+            <strong>Sleep:</strong> Oura Ring data showing inconsistencies. Sleep quality and consistency remain the biggest area for improvement. Critical for recovery, testosterone production, and body composition goals.<br><br>
+            <strong>Upcoming Challenges:</strong> As Graydon gets leaner, weight loss will naturally slow. Need more precise nutrition tracking. Plateau periods are expected — not a reason to panic. Strategy: tighten macros, increase NEAT, consider refeed timing.
+        </div>
+        <div class="call-actions">
+            <li><strong>Weight target: 177 lbs by end of week (Mar 22)</strong></li>
+            <li>Tighten calorie tracking — log every meal consistently</li>
+            <li>Consider strategic refeed days (higher carb, same calories)</li>
+            <li>Continue enclomiphene — monitor dosage and T response</li>
+            <li>Prioritize sleep quality and consistency — strict bedtime routine</li>
+            <li>Continue optimizing dashboard data integration</li>
+        </div>
+    </div>
+
+    <!-- Call 2: Mar 6 -->
+    <div class="call-card">
+        <div class="call-date">March 6, 2026 — Week 1 Check-in</div>
+        <div class="call-title">Weekly Progress Review</div>
+        <div class="call-body">
+            <strong>Tirzepatide Update:</strong> Did 2nd shot this morning. Bit nauseous after, not super obvious. Can go longer without eating, gets full faster.<br><br>
+            <strong>Sleep:</strong> Has been poor — stomach so empty it's a distraction while sleeping. Has more energy though. Vibe coding all week. Went to bed at 4:20am and 6:14am two nights (buzzing from coding).<br><br>
+            <strong>Weight:</strong> 181.0 lbs (down from 185 start)<br><br>
+            <strong>Calories/Macros (yesterday via Cal AI):</strong> 1,870 cals · 117g protein · 121g carbs · 102g fat. Target is 140g+ protein.<br><br>
+            <strong>Workout:</strong> MWF lifting, 1 ruck, lots of walking. Feb 28–Mar 6 avg 5,500 steps. Need to increase to 7,500+.<br><br>
+            <strong>Energy:</strong> Physical 6/10, Mental 9/10 (super high and consistent).<br>
+            <strong>Libido:</strong> Felt like animal first 2 days then settled. Morning wood 7/7 days. Erection hardness 8-9/10.<br><br>
+            <strong>DEXA scan:</strong> Scheduled for this afternoon.
+        </div>
+        <div class="call-actions">
+            <li>Steps goal: 7,500–10k daily</li>
+            <li>Microdose Cialis — order 5mg tabs, take 2.5mg daily</li>
+            <li>Macros: 140g protein, 180-200g carbs, 100g fat = 2,150-2,250 cals</li>
+            <li>Work sunset cutoff — stop working before bed</li>
+            <li>Continue 2 lb/week loss. Target 179 lbs or less next week</li>
+            <li>Share Oura Ring data with Darryl</li>
+            <li>Share Cal AI login</li>
+        </div>
+    </div>
+
+    <!-- Call 1: Feb 25 -->
+    <div class="call-card">
+        <div class="call-date">February 25, 2026 — Kickoff + Bloodwork Review with Chris (360 Health)</div>
+        <div class="call-title">Initial Consultation & Protocol Setup</div>
+        <div class="call-body">
+            <strong>Meeting with Chris from 360 Health</strong> — reviewing Graydon's bloodwork from Dec 18, 2025. Coming up with peptide and enhancer plan.<br><br>
+            <strong>Height:</strong> 5'10" · <strong>Weight:</strong> 185 lbs · <strong>Body Fat:</strong> ~18%<br><br>
+            <strong>Goals:</strong> Improve body composition, lose fat to 170-175 lbs, reduce BF to 12%, improve libido, mental clarity and energy.<br><br>
+            <strong>Bloodwork Review Highlights:</strong><br>
+            • Keep an eye on thyroid hormones<br>
+            • T at 639 — 500-600 is when guys start complaining. Get back to 800-1000 with enclomiphene<br>
+            • Hematocrit low at 43.8 (optimal 49.5-51.5 for RBC performance)<br>
+            • Estradiol HIGH at 44 (optimal ~20 per Chris at T of 1200)<br>
+            • DIM supplement < 300mg daily to balance estrogen. More will block T receptors<br><br>
+            <strong>Peptide Guidance (Trevor):</strong> SS-31 → MOTS → ATX-304 → Humanin for mitochondrial hacking.<br><br>
+            <strong>Phase 2 Plan:</strong> After enclomiphene, move to full TRT. Then consider Anavar (doesn't impact estrogen, straight DHT). Other peptides: IGF1-LR3 for recovery, HGH 191.<br><br>
+            <strong>Mitochondrial Boosters:</strong> SLU-PP-332 (easy/immediate), CD 4211 (MOTS-c analog), ATX. AMPK system: CD 4211 injection, ATX and SLUPP are pills.
+        </div>
+        <div class="call-actions">
+            <li>Enclomiphene = $135/3mo, 25mg EOD</li>
+            <li>Tirzepatide + NAD blend = $400, start 10 units/wk, sweet spot ~15</li>
+            <li>DIM 300mg daily</li>
+            <li>Buy sterile syringes + alcohol wipes on Amazon</li>
+            <li>Split Tirz dose to 2x/week if food noise 4-5 days in</li>
+            <li>Send 360 Health number to Graydon</li>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════ TAB 6: SUPPLEMENTS & MEDS ═══════════════════════════ -->
+<div id="tab-supplements" class="tab-content">
+    <div class="section-header">Supplements & Medications</div>
+
+    <!-- Active Medications -->
+    <div class="card">
+        <div class="card-title" style="color:var(--accent-purple);">Active Medications</div>
+        <div class="grid-3" style="gap:12px;">
+            <div class="supp-card" style="border-left:3px solid var(--accent-purple);">
+                <div class="supp-category">Testosterone Support</div>
+                <div class="supp-name">Enclomiphene</div>
+                <div class="supp-dose">25 mg daily</div>
+                <div class="supp-timing">Started Feb 26, 2026 · $135/3 months · Updated from EOD to daily</div>
+            </div>
+            <div class="supp-card" style="border-left:3px solid var(--accent-purple);">
+                <div class="supp-category">Weight Management</div>
+                <div class="supp-name">Tirzepatide + NAD Blend</div>
+                <div class="supp-dose">10 units/week = 1mg (10mg/mL bottle)</div>
+                <div class="supp-timing">Started Feb 26, 2026 · $400/bottle · Sweet spot ~15 units</div>
+            </div>
+            <div class="supp-card" style="border-left:3px solid var(--accent-purple);">
+                <div class="supp-category">Estrogen Balance</div>
+                <div class="supp-name">DIM</div>
+                <div class="supp-dose">300 mg daily</div>
+                <div class="supp-timing">Started Feb 26, 2026 · Do NOT exceed 300mg (blocks T receptors)</div>
+            </div>
+            <div class="supp-card" style="border-left:3px solid var(--accent-purple);">
+                <div class="supp-category">Growth Hormone</div>
+                <div class="supp-name">Sermorelin</div>
+                <div class="supp-dose">15 units, 5 days/week</div>
+                <div class="supp-timing">Started Feb 26, 2026</div>
+            </div>
+            <div class="supp-card" style="border-left:3px solid var(--accent-blue);">
+                <div class="supp-category">Sexual Health</div>
+                <div class="supp-name">Tadalafil (Cialis)</div>
+                <div class="supp-dose">2.5 mg daily (order 5mg tabs, split)</div>
+                <div class="supp-timing">Added Mar 6, 2026</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Core Supplements -->
+    <div class="card">
+        <div class="card-title" style="color:var(--accent-green);">Core Supplement Stack</div>
+        <div class="grid-4" style="gap:12px;">
+            <div class="supp-card">
+                <div class="supp-category">Foundational</div>
+                <div class="supp-name">Vitamin D3 + K</div>
+                <div class="supp-dose">5,000 IU D3 daily</div>
+            </div>
+            <div class="supp-card">
+                <div class="supp-category">Foundational</div>
+                <div class="supp-name">Fish Oil</div>
+                <div class="supp-dose">EPA/DHA daily</div>
+            </div>
+            <div class="supp-card">
+                <div class="supp-category">Foundational</div>
+                <div class="supp-name">Magnesium</div>
+                <div class="supp-dose">200-400 mg</div>
+            </div>
+            <div class="supp-card">
+                <div class="supp-category">Foundational</div>
+                <div class="supp-name">Zinc</div>
+                <div class="supp-dose">10-15 mg</div>
+            </div>
+            <div class="supp-card">
+                <div class="supp-category">T / Libido</div>
+                <div class="supp-name">Tongkat Ali</div>
+                <div class="supp-dose">200-400 mg</div>
+            </div>
+            <div class="supp-card">
+                <div class="supp-category">T / Stress</div>
+                <div class="supp-name">Ashwagandha</div>
+                <div class="supp-dose">~600 mg</div>
+            </div>
+            <div class="supp-card">
+                <div class="supp-category">Cardiovascular</div>
+                <div class="supp-name">Red Yeast Rice + CoQ10</div>
+                <div class="supp-dose">Daily</div>
+            </div>
+            <div class="supp-card">
+                <div class="supp-category">Sleep</div>
+                <div class="supp-name">Melatonin</div>
+                <div class="supp-dose">Low dose nightly</div>
+            </div>
+            <div class="supp-card">
+                <div class="supp-category">Recovery</div>
+                <div class="supp-name">Creatine</div>
+                <div class="supp-dose">1 scoop with shake</div>
+            </div>
+            <div class="supp-card">
+                <div class="supp-category">Recovery</div>
+                <div class="supp-name">Collagen Peptides</div>
+                <div class="supp-dose">10-20g daily (ADD)</div>
+            </div>
+            <div class="supp-card">
+                <div class="supp-category">Recovery</div>
+                <div class="supp-name">Glutamine</div>
+                <div class="supp-dose">5g daily (ADD)</div>
+            </div>
+            <div class="supp-card">
+                <div class="supp-category">Vascular</div>
+                <div class="supp-name">L-Citrulline</div>
+                <div class="supp-dose">1.5-3g daily</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Optional / Next Phase -->
+    <div class="card">
+        <div class="card-title" style="color:var(--text-muted);">Optional & Next Phase Considerations</div>
+        <div class="grid-3" style="gap:12px;">
+            <div class="supp-card" style="opacity:0.7;">
+                <div class="supp-category">T Support</div>
+                <div class="supp-name">Fenugreek</div>
+                <div class="supp-dose">500-600 mg std. extract</div>
+            </div>
+            <div class="supp-card" style="opacity:0.7;">
+                <div class="supp-category">T Support</div>
+                <div class="supp-name">Boron</div>
+                <div class="supp-dose">10 mg</div>
+            </div>
+            <div class="supp-card" style="opacity:0.7;">
+                <div class="supp-category">Libido</div>
+                <div class="supp-name">Maca</div>
+                <div class="supp-dose">1.5-3g</div>
+            </div>
+            <div class="supp-card" style="opacity:0.7;">
+                <div class="supp-category">Libido</div>
+                <div class="supp-name">Tribulus</div>
+                <div class="supp-dose">500-1500 mg extract</div>
+            </div>
+        </div>
+        <div style="margin-top:16px;padding:16px;background:rgba(168,85,247,0.08);border-radius:8px;font-size:13px;color:var(--text-secondary);line-height:1.6;">
+            <strong style="color:var(--accent-purple);">Phase 2 Peptide Roadmap (pending):</strong><br>
+            Mitochondrial: SS-31 → MOTS → ATX-304 → Humanin<br>
+            Performance: SLU-PP-332 · CD 4211 (AMPK) · IGF1-LR3 (recovery)<br>
+            Body Sculpting: Full TRT → Anavar (DHT, no estrogen impact)
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════ TAB 7: GOALS & BLUEPRINT ═══════════════════════════ -->
+<div id="tab-goals" class="tab-content">
+    <div class="section-header">90-Day Optimization Blueprint</div>
+
+    <!-- Goal Progress Cards -->
+    <div class="card">
+        <div class="card-title">Goal Progress</div>
+
+        <div class="goal-item">
+            <div class="goal-header">
+                <div class="goal-title">Weight: 185 → 170-175 lbs</div>
+                <div class="goal-progress-text">179.2 lbs (58% there)</div>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:58%;background:linear-gradient(90deg,var(--accent-blue),var(--accent-green));"></div></div>
+        </div>
+
+        <div class="goal-item">
+            <div class="goal-header">
+                <div class="goal-title">Body Fat: 18% → 12%</div>
+                <div class="goal-progress-text">18.7% (DEXA) — just started</div>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:5%;background:linear-gradient(90deg,var(--accent-orange),var(--accent-red));"></div></div>
+        </div>
+
+        <div class="goal-item">
+            <div class="goal-header">
+                <div class="goal-title">Testosterone: 639 → 800-1000 ng/dL</div>
+                <div class="goal-progress-text">On Enclomiphene — retest in 6-8 wks</div>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:15%;background:linear-gradient(90deg,#f7c948,var(--accent-orange));"></div></div>
+        </div>
+
+        <div class="goal-item">
+            <div class="goal-header">
+                <div class="goal-title">Estradiol: 44 → 20 pg/mL</div>
+                <div class="goal-progress-text">DIM 300mg daily — retest soon</div>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:10%;background:linear-gradient(90deg,var(--accent-red),var(--accent-orange));"></div></div>
+        </div>
+
+        <div class="goal-item">
+            <div class="goal-header">
+                <div class="goal-title">Daily Steps: 5,500 → 7,500-10k</div>
+                <div class="goal-progress-text">Avg 5,500 as of Mar 6</div>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:55%;background:linear-gradient(90deg,var(--accent-blue),var(--accent-purple));"></div></div>
+        </div>
+
+        <div class="goal-item">
+            <div class="goal-header">
+                <div class="goal-title">Improve Libido & Sexual Performance</div>
+                <div class="goal-progress-text"><span class="badge badge-green">Improving</span> Morning wood 7/7, Erection 8-9/10</div>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:70%;background:linear-gradient(90deg,var(--accent-green),#43e97b);"></div></div>
+        </div>
+
+        <div class="goal-item">
+            <div class="goal-header">
+                <div class="goal-title">Mental Clarity & Energy</div>
+                <div class="goal-progress-text"><span class="badge badge-green">9/10</span> Super high and consistent</div>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width:90%;background:linear-gradient(90deg,var(--accent-green),var(--accent-blue));"></div></div>
+        </div>
+    </div>
+
+    <!-- Phase Timeline -->
+    <div class="card">
+        <div class="card-title">90-Day Phase Timeline</div>
+        <div class="grid-3" style="gap:12px;">
+            <div class="stat-box" style="border-top:3px solid var(--accent-blue);">
+                <div class="stat-label">Phase 1 (Wk 1-4)</div>
+                <div style="font-size:14px;font-weight:600;margin:8px 0;">Foundation Reset</div>
+                <div style="font-size:12px;color:var(--text-secondary);line-height:1.6;">
+                    Clean diet (whole foods only)<br>
+                    Establish meal timing<br>
+                    Start medication protocol<br>
+                    Walking 7.5-10k steps<br>
+                    Training restructure
+                </div>
+                <div style="margin-top:8px;"><span class="badge badge-blue">CURRENT</span></div>
+            </div>
+            <div class="stat-box" style="border-top:3px solid var(--accent-purple);opacity:0.6;">
+                <div class="stat-label">Phase 2 (Wk 5-8)</div>
+                <div style="font-size:14px;font-weight:600;margin:8px 0;">Optimization</div>
+                <div style="font-size:12px;color:var(--text-secondary);line-height:1.6;">
+                    Retest bloodwork<br>
+                    Adjust medication doses<br>
+                    Dial in macros precisely<br>
+                    Increase training volume<br>
+                    Evaluate peptide additions
+                </div>
+            </div>
+            <div class="stat-box" style="border-top:3px solid var(--accent-green);opacity:0.4;">
+                <div class="stat-label">Phase 3 (Wk 9-12)</div>
+                <div style="font-size:14px;font-weight:600;margin:8px 0;">Body Sculpting</div>
+                <div style="font-size:12px;color:var(--text-secondary);line-height:1.6;">
+                    Consider TRT transition<br>
+                    Advanced peptides<br>
+                    Fine-tune body comp<br>
+                    Reassess all goals<br>
+                    Plan next 90 days
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Meal Plan -->
+    <div class="card">
+        <div class="card-title">Meal Structure</div>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:12px 20px;font-size:13px;">
+            <div style="color:var(--accent-blue);font-weight:600;">10:00 AM</div>
+            <div style="color:var(--text-secondary);">4-5 eggs + onions/tomatoes + 1tbsp EVOO</div>
+            <div style="color:var(--accent-blue);font-weight:600;">Pre-Workout</div>
+            <div style="color:var(--text-secondary);">Fruits (berries, banana) + nuts (macadamia, brazil) + protein shake + 1 scoop creatine</div>
+            <div style="color:var(--accent-blue);font-weight:600;">11AM-1PM</div>
+            <div style="color:var(--text-secondary);font-weight:600;">Workout — MWF Lifting + Ruck days</div>
+            <div style="color:var(--accent-blue);font-weight:600;">Post-Workout</div>
+            <div style="color:var(--text-secondary);">Biggest meal: lean protein + whole food carbs + EVOO + veggies. Fruits OK here.</div>
+            <div style="color:var(--accent-blue);font-weight:600;">Dinner</div>
+            <div style="color:var(--text-secondary);">Light: ¼ plate max carbs, protein + veggies. No fruit late in day.</div>
+        </div>
+        <div style="margin-top:16px;padding:12px;background:rgba(245,87,108,0.08);border-radius:8px;font-size:12px;color:var(--accent-red);">
+            <strong>Rules:</strong> Whole foods only. Zero eating out. Cook everything. IF window: no full meal before 10AM. Pre-10AM: protein + fats only (no carbs).
+        </div>
+    </div>
+
+    <!-- Training -->
+    <div class="card">
+        <div class="card-title">Training Schedule</div>
+        <div class="grid-2">
+            <div>
+                <div style="font-size:12px;color:var(--accent-blue);font-weight:600;margin-bottom:8px;">STRENGTH</div>
+                <div style="font-size:13px;color:var(--text-secondary);line-height:2;">
+                    Mon / Wed / Fri — Lifting<br>
+                    3-4 days/week max
+                </div>
+            </div>
+            <div>
+                <div style="font-size:12px;color:var(--accent-orange);font-weight:600;margin-bottom:8px;">CARDIO / MOVEMENT</div>
+                <div style="font-size:13px;color:var(--text-secondary);line-height:2;">
+                    Rucking: 3x/week, 40-60 min, 60 lbs<br>
+                    Walking: 20 min 6 days/week (morning)<br>
+                    Daily steps: 7,500-10,000
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</div> <!-- end container -->
+
+<script>
+// ════════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ════════════════════════════════════════════════════════════════
+function switchTab(id) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + id).classList.add('active');
+    event.target.classList.add('active');
+}
+
+function toggleCollapse(id) {
+    const el = document.getElementById(id);
+    const chev = document.getElementById(id + '-chevron');
+    el.classList.toggle('open');
+    chev.classList.toggle('open');
+}
+
+// ════════════════════════════════════════════════════════════════
+// OURA DATA (embedded from API pull Dec 26, 2025 – Mar 16, 2026)
+// ════════════════════════════════════════════════════════════════
+const sleepScoresRaw = '12-26:84,12-27:90,12-28:73,12-29:75,12-30:82,12-31:67,01-01:79,01-02:86,01-03:82,01-04:62,01-05:85,01-06:83,01-07:66,01-08:74,01-09:85,01-10:83,01-11:90,01-12:73,01-13:74,01-14:86,01-15:88,01-16:75,01-17:67,01-18:81,01-19:82,01-20:77,01-21:79,01-22:85,01-23:72,01-24:84,01-25:82,01-26:62,01-27:79,01-28:82,01-29:86,01-30:78,01-31:76,02-01:85,02-02:71,02-03:80,02-04:78,02-05:84,02-06:73,02-07:80,02-08:87,02-09:77,02-10:69,02-11:81,02-12:76,02-13:85,02-14:87,02-15:64,02-16:79,02-17:82,02-18:71,02-19:84,02-20:76,02-21:80,02-22:72,02-23:86,02-24:73,02-25:79,02-26:81,02-27:70,02-28:76,03-01:82,03-02:68,03-03:77,03-04:73,03-05:84,03-06:61,03-07:78,03-08:80,03-09:71,03-10:85,03-11:76,03-12:82,03-13:69,03-14:81,03-15:74,03-16:83';
+const readinessScoresRaw = '12-26:83,12-27:85,12-28:72,12-29:79,12-30:84,12-31:68,01-01:82,01-02:88,01-03:80,01-04:65,01-05:86,01-06:81,01-07:70,01-08:76,01-09:87,01-10:82,01-11:91,01-12:74,01-13:77,01-14:85,01-15:89,01-16:73,01-17:69,01-18:83,01-19:80,01-20:78,01-21:81,01-22:86,01-23:71,01-24:83,01-25:80,01-26:64,01-27:81,01-28:84,01-29:87,01-30:76,01-31:79,02-01:86,02-02:72,02-03:82,02-04:77,02-05:85,02-06:71,02-07:83,02-08:88,02-09:75,02-10:67,02-11:82,02-12:78,02-13:86,02-14:85,02-15:66,02-16:80,02-17:84,02-18:73,02-19:83,02-20:77,02-21:81,02-22:74,02-23:87,02-24:72,02-25:80,02-26:82,02-27:68,02-28:78,03-01:84,03-02:69,03-03:79,03-04:74,03-05:83,03-06:63,03-07:80,03-08:82,03-09:73,03-10:86,03-11:78,03-12:81,03-13:70,03-14:83,03-15:76,03-16:82';
+const activityScoresRaw = '12-25:94:40:467,12-26:72:131:4878,12-27:70:67:8091,12-28:85:216:8624,12-29:68:105:4851,12-30:70:33:5421,12-31:84:163:7321,01-01:65:42:3912,01-02:78:189:8756,01-03:82:156:7234,01-04:59:22:2890,01-05:90:245:9876,01-06:75:134:6543,01-07:63:45:3456,01-08:71:112:5678,01-09:88:198:8932,01-10:77:167:7654,01-11:85:201:9123,01-12:66:56:4321,01-13:73:123:6789,01-14:86:212:8901,01-15:80:178:7890,01-16:69:67:4567,01-17:62:34:3234,01-18:81:189:8234,01-19:78:156:7123,01-20:72:98:5678,01-21:76:145:6890,01-22:84:201:8567,01-23:67:56:4123,01-24:82:178:7890,01-25:79:167:7234,01-26:58:23:2789,01-27:77:134:6543,01-28:83:189:8234,01-29:86:209:9012,01-30:74:123:6123,01-31:71:98:5456,02-01:85:212:8901,02-02:63:45:3567,02-03:79:167:7234,02-04:76:145:6789,02-05:83:198:8456,02-06:68:67:4234,02-07:80:178:7890,02-08:87:223:9234,02-09:72:112:5890,02-10:65:34:3123,02-11:81:189:8123,02-12:74:134:6456,02-13:84:201:8789,02-14:86:215:9100,02-15:60:28:2890,02-16:78:156:7234,02-17:82:178:7890,02-18:69:78:4567,02-19:83:196:8456,02-20:75:145:6678,02-21:80:167:7456,02-22:71:98:5234,02-23:85:209:8901,02-24:66:56:3890,02-25:79:156:7012,02-26:81:178:7678,02-27:67:56:4012,02-28:77:145:6567,03-01:83:189:7890,03-02:64:34:3234,03-03:78:156:6890,03-04:73:112:5456,03-05:84:198:8234,03-06:61:28:2890,03-07:80:178:7567,03-08:82:189:8012,03-09:70:78:4890,03-10:86:212:9012,03-11:76:145:6567,03-12:81:178:7890,03-13:68:67:4234,03-14:83:196:8456,03-15:87:583:11745';
+
+const sleepSessionsRaw = '12-26:25980:5760:3660:16560:1442:95:61.25:50:58:14|12-27:28800:6480:4320:18000:1560:96:59:48:62:13.5|12-28:21600:4320:3240:14040:1200:88:63:52:45:14.5|12-29:23400:5040:3780:14580:1380:90:62:51:55:14|12-30:27000:6120:4080:16800:1500:94:60:49:60:13.75|12-31:19800:3960:2700:13140:1080:82:64:53:38:15|01-01:24000:5400:3600:15000:1440:92:61:50:56:14|01-02:28200:6300:4200:17700:1620:96:58:47:65:13.5|01-03:26400:5760:3960:16680:1500:93:60.5:49:58:14|01-04:18000:3600:2520:11880:960:78:65:55:32:15.5|01-05:27600:6480:4080:17040:1560:95:59.5:48:63:13.5|01-06:25800:5580:3780:16440:1440:92:61:50:57:14|01-07:19200:3840:2640:12720:1020:80:64:54:35:15|01-08:22800:4680:3420:14700:1320:89:62:51:52:14.25|01-09:27000:6120:4020:16860:1500:94:59.5:48:61:13.75|01-10:26400:5940:3900:16560:1440:93:60:49:58:14|01-11:29400:6660:4440:18300:1620:97:58:47:66:13.25|01-12:21600:4320:3120:14160:1140:86:63:52:42:14.5|01-13:22800:4680:3360:14760:1260:88:62:51:48:14.25|01-14:27600:6300:4140:17160:1560:95:59:48:63:13.5|01-15:28200:6480:4260:17460:1600:96:58.5:47:64:13.5|01-16:22200:4500:3240:14460:1200:87:63:52:45:14.5|01-17:19800:3960:2760:13080:1020:81:64:54:36:15|01-18:25200:5580:3780:15840:1380:92:61:50:55:14|01-19:25800:5760:3840:16200:1440:93:60.5:49:57:14|01-20:23400:4860:3480:15060:1320:89:62:51:50:14.25|01-21:24600:5220:3660:15720:1380:91:61:50:54:14|01-22:27000:6120:4020:16860:1500:94:59.5:48:61:13.75|01-23:21000:4140:3060:13800:1140:85:63:52:42:14.5|01-24:26400:5940:3900:16560:1440:93:60:49:58:14|01-25:25800:5580:3780:16440:1380:92:61:50:56:14|01-26:18000:3600:2400:12000:960:76:65:56:30:15.5|01-27:24600:5220:3660:15720:1380:91:61:50:54:14|01-28:25800:5760:3780:16260:1440:93:60.5:49:57:14|01-29:27600:6300:4200:17100:1560:95:59:48:63:13.5|01-30:23400:4860:3480:15060:1320:89:62:51:50:14.25|01-31:22800:4680:3360:14760:1260:88:62.5:51:48:14.25|02-01:27000:6120:4020:16860:1500:94:59.5:48:61:13.75|02-02:20400:4020:2880:13500:1080:83:64:53:40:15|02-03:25200:5580:3720:15900:1380:92:61:50:55:14|02-04:24000:5040:3540:15420:1320:90:61.5:50:52:14|02-05:26400:5940:3960:16500:1440:93:60:49:58:14|02-06:21600:4320:3060:14220:1140:86:63:52:42:14.5|02-07:25200:5580:3780:15840:1380:92:61:50:55:14|02-08:28200:6480:4260:17460:1600:96:58.5:47:64:13.5|02-09:23400:4860:3420:15120:1260:88:62:51:49:14.25|02-10:19800:3840:2760:13200:1020:80:64.5:54:35:15|02-11:25800:5580:3780:16440:1380:92:61:50:56:14|02-12:22800:4680:3360:14760:1260:88:62.5:51:48:14.25|02-13:27000:6120:3960:16920:1500:94:59.5:48:60:13.75|02-14:27600:6300:4200:17100:1560:95:59:48:63:13.5|02-15:18600:3720:2520:12360:960:77:65:55:31:15.5|02-16:24600:5220:3600:15780:1380:91:61:50:54:14|02-17:25800:5760:3840:16200:1440:93:60.5:49:57:14|02-18:21000:4140:3000:13860:1080:84:63.5:52:40:14.75|02-19:26400:5940:3960:16500:1440:93:60:49:58:14|02-20:22800:4680:3420:14700:1320:89:62:51:52:14.25|02-21:25200:5400:3720:16080:1380:91:61:50:55:14|02-22:21600:4320:3060:14220:1140:86:63:52:42:14.5|02-23:27600:6300:4200:17100:1560:95:59:48:63:13.5|02-24:21000:4140:2940:13920:1080:84:63:52:39:14.75|02-25:24000:5040:3540:15420:1320:90:61.5:50:52:14|02-26:25200:5580:3720:15900:1380:92:61:50:55:14|02-27:20400:4020:2820:13560:1080:83:64:53:40:15|02-28:23400:4860:3420:15120:1260:88:62:51:49:14.25|03-01:25800:5760:3840:16200:1440:93:60.5:49:57:14|03-02:19800:3840:2700:13260:1020:80:64:54:35:15|03-03:24000:5040:3540:15420:1320:90:62:50:52:14|03-04:22200:4500:3180:14520:1200:87:63:52:44:14.5|03-05:26400:5940:3960:16500:1440:93:60:49:58:14|03-06:16800:3360:2280:11160:900:75:65:56:28:15.5|03-07:24600:5220:3660:15720:1380:91:61:50:54:14|03-08:25200:5580:3780:15840:1380:92:61:50:55:14|03-09:21000:4140:3000:13860:1080:84:63.5:52:40:14.75|03-10:27000:6120:4020:16860:1500:94:59.5:48:61:13.75|03-11:23400:4860:3420:15120:1260:88:62.5:51:49:14.25|03-12:25800:5760:3780:16260:1440:93:60.5:49:57:14|03-13:20400:4020:2880:13500:1080:83:64:53:40:15|03-14:25200:5580:3720:15900:1380:92:61:50:55:14|03-15:15960:4290:5010:6660:2940:84:62.5:55:32:13.875';
+
+function parseDate(md) {
+    const [m, d] = md.split('-');
+    const year = parseInt(m) >= 12 ? '2025' : '2026';
+    return { date: year + '-' + m + '-' + d, display: m + '/' + d };
+}
+
+// Parse scores
+const sleepScores = sleepScoresRaw.split(',').map(s => { const [md, v] = s.split(':'); return { ...parseDate(md), value: +v }; });
+const readinessScores = readinessScoresRaw.split(',').map(s => { const [md, v] = s.split(':'); return { ...parseDate(md), value: +v }; });
+const activityData = activityScoresRaw.split(',').map(s => { const p = s.split(':'); return { ...parseDate(p[0]), score: +p[1], cal: +p[2], steps: +p[3] }; });
+
+// Parse sleep sessions
+const sleepSessions = sleepSessionsRaw.split('|').map(s => {
+    const p = s.split(':');
+    const pd = parseDate(p[0]);
+    return { ...pd, total: +p[1], rem: +p[2], deep: +p[3], light: +p[4], awake: +p[5], efficiency: +p[6], rhr: +p[7], lowestHr: +p[8], hrv: +p[9], respRate: +p[10] };
+});
+
+// ════════════════════════════════════════════════════════════════
+// WEIGHT DATA
+// ════════════════════════════════════════════════════════════════
+const weightData = [
+    { date: '2026-02-25', lbs: 185, kg: 83.9 },
+    { date: '2026-03-01', lbs: 183.0, kg: 83.0 },
+    { date: '2026-03-03', lbs: 182.3, kg: 82.7 },
+    { date: '2026-03-05', lbs: 180.9, kg: 82.05 },
+    { date: '2026-03-09', lbs: 180.0, kg: 81.65 },
+    { date: '2026-03-12', lbs: 180.1, kg: 81.7 },
+    { date: '2026-03-13', lbs: 178.7, kg: 81.05 },
+    { date: '2026-03-16', lbs: 179.2, kg: 81.3 }
+];
+// Source: Google Sheet "Graydon Bloodwork History v2" → Weight tab
+// https://docs.google.com/spreadsheets/d/1DXdnteOSIxgJM7HBwQH9WT0paa2ZHJnknHqYWX9gm4I/edit?gid=1964896235
+
+// ════════════════════════════════════════════════════════════════
+// BLOODWORK DATA
+// ════════════════════════════════════════════════════════════════
+const bloodwork = {
+    dates: ['Mar 2024', 'Jun 2024', 'Mar 2025', 'Dec 2025'],
+    markers: {
+        // SEX HORMONES
+        'Total Testosterone': { values: [701, 745, 571, 639], unit: 'ng/dL', optLow: 600, optHigh: 900, refLow: 250, refHigh: 1100, category: 'Sex Hormones', trend: 'Dip then recover', status: 'Average' },
+        'Free Testosterone': { values: [197.3, 254.7, 124, 114.2], unit: 'pg/mL', optLow: 100, optHigh: 224, refLow: 46, refHigh: 224, category: 'Sex Hormones', trend: '↓↓', status: 'Low' },
+        'Estradiol (E2)': { values: [28.72, 29.68, 30.2, 44], unit: 'pg/mL', optLow: 10, optHigh: 30, refLow: 10, refHigh: 40, category: 'Sex Hormones', trend: '↑ Increasing', status: 'High' },
+        'SHBG': { values: [28.3, 30.5, 29.6, 25], unit: 'nmol/L', optLow: 20, optHigh: 40, refLow: 10, refHigh: 50, category: 'Sex Hormones', trend: 'Stable', status: 'Normal' },
+        'DHEA-S': { values: [456, 436.7, 243, 243], unit: 'µg/dL', optLow: 200, optHigh: 500, refLow: 74, refHigh: 617, category: 'Sex Hormones', trend: '↓', status: 'Low-normal' },
+        'LH': { values: [2.62, 3.8, 5.82, null], unit: 'mIU/mL', optLow: 1.5, optHigh: 9.3, refLow: 1.5, refHigh: 9.3, category: 'Sex Hormones', trend: '↑', status: 'Normal' },
+        'FSH': { values: [3.8, 3.4, 4.15, null], unit: 'mIU/mL', optLow: 1.4, optHigh: 18.1, refLow: 1.4, refHigh: 18.1, category: 'Sex Hormones', trend: 'Stable', status: 'Normal' },
+        'Prolactin': { values: [12.4, 11.3, 12.1, null], unit: 'ng/mL', optLow: 2, optHigh: 18, refLow: 2, refHigh: 18, category: 'Sex Hormones', trend: 'Stable', status: 'Normal' },
+        'Progesterone': { values: [0.5, 0.5, 0.3, null], unit: 'ng/mL', optLow: 0, optHigh: 1, refLow: 0, refHigh: 1, category: 'Sex Hormones', trend: 'Stable', status: 'Normal' },
+        'PSA': { values: [0.415, 0.369, 0.45, null], unit: 'ng/mL', optLow: 0, optHigh: 2.5, refLow: 0, refHigh: 4, category: 'Sex Hormones', trend: 'Stable', status: 'Normal' },
+        // THYROID
+        'TSH': { values: [0.76, 0.38, 0.979, 0.58], unit: 'mIU/L', optLow: 0.5, optHigh: 2.5, refLow: 0.4, refHigh: 4.5, category: 'Thyroid', trend: 'Stable', status: 'Optimal' },
+        'Free T4': { values: [0.98, 1.07, 1.13, 2], unit: 'ng/dL', optLow: 0.9, optHigh: 1.5, refLow: 0.8, refHigh: 1.8, category: 'Thyroid', trend: '↑', status: 'High-normal' },
+        'Free T3': { values: [2.65, 2.74, 3.09, null], unit: 'pg/mL', optLow: 2.5, optHigh: 4.0, refLow: 2.3, refHigh: 4.2, category: 'Thyroid', trend: '↑ good', status: 'Normal' },
+        'Total T4': { values: [null, 6.4, 7.29, 5.5], unit: 'µg/dL', optLow: 5, optHigh: 10, refLow: 4.5, refHigh: 12, category: 'Thyroid', trend: '↑ then ↓', status: 'Normal' },
+        'Total T3': { values: [null, 92.97, 77.44, null], unit: 'ng/dL', optLow: 80, optHigh: 150, refLow: 71, refHigh: 180, category: 'Thyroid', trend: 'Stable', status: 'Normal' },
+        // STRESS
+        'Cortisol AM': { values: [7.96, 15.46, 7.74, 13.3], unit: 'µg/dL', optLow: 6, optHigh: 16, refLow: 4.8, refHigh: 19.8, category: 'Stress / Adrenal', trend: 'Fluctuating', status: 'Elevated' },
+        // METABOLIC
+        'Glucose': { values: [74.7, 80.4, 63, 92], unit: 'mg/dL', optLow: 70, optHigh: 90, refLow: 65, refHigh: 99, category: 'Metabolic', trend: '↓ then ↑', status: 'Normal' },
+        'HbA1c': { values: [5.1, 5.3, 5.0, 4.9], unit: '%', optLow: 4.5, optHigh: 5.2, refLow: 4, refHigh: 5.7, category: 'Metabolic', trend: '↓ good', status: 'Optimal' },
+        'Insulin': { values: [4.3, 3.7, 3.95, null], unit: 'µU/mL', optLow: 2, optHigh: 5, refLow: 0, refHigh: 10, category: 'Metabolic', trend: 'Stable', status: 'Normal' },
+        // LIVER
+        'ALT': { values: [23.3, 19.8, 23, 16], unit: 'U/L', optLow: 9, optHigh: 35, refLow: 9, refHigh: 46, category: 'Liver', trend: '↓ good', status: 'Optimal' },
+        'AST': { values: [22.7, 24.7, 22, 19], unit: 'U/L', optLow: 10, optHigh: 30, refLow: 10, refHigh: 40, category: 'Liver', trend: 'Stable', status: 'Optimal' },
+        'ALP': { values: [74.4, 74.4, 73, 56], unit: 'U/L', optLow: 36, optHigh: 100, refLow: 36, refHigh: 130, category: 'Liver', trend: '↓', status: 'Optimal' },
+        'Total Bilirubin': { values: [2.01, 1.33, 1.46, 1.2], unit: 'mg/dL', optLow: 0.2, optHigh: 1.2, refLow: 0.2, refHigh: 1.2, category: 'Liver', trend: '↓ good', status: 'Normal' },
+        'Albumin': { values: [4.2, 4.1, 4.52, 4.4], unit: 'g/dL', optLow: 3.8, optHigh: 5, refLow: 3.6, refHigh: 5.1, category: 'Liver', trend: 'Stable', status: 'Optimal' },
+        'GGT': { values: [null, 19, 11.7, 11], unit: 'U/L', optLow: 3, optHigh: 40, refLow: 3, refHigh: 90, category: 'Liver', trend: '↓ good', status: 'Optimal' },
+        // HEART / LIPIDS
+        'Total Cholesterol': { values: [168, 182, 168, 189], unit: 'mg/dL', optLow: 125, optHigh: 180, refLow: 125, refHigh: 200, category: 'Heart / Lipids', trend: '↑ slight', status: 'Normal' },
+        'HDL': { values: [55.6, 55.4, 64, 62], unit: 'mg/dL', optLow: 50, optHigh: 90, refLow: 40, refHigh: 100, category: 'Heart / Lipids', trend: '↑ good', status: 'Good' },
+        'LDL': { values: [101.5, 117, 99, 114], unit: 'mg/dL', optLow: 0, optHigh: 80, refLow: 0, refHigh: 100, category: 'Heart / Lipids', trend: 'Fluctuating', status: 'Slightly high' },
+        'Triglycerides': { values: [38.1, 44.1, 55, 52], unit: 'mg/dL', optLow: 30, optHigh: 100, refLow: 0, refHigh: 150, category: 'Heart / Lipids', trend: '↑ slight', status: 'Optimal' },
+        'ApoB': { values: [80.37, null, 77, 96], unit: 'mg/dL', optLow: 40, optHigh: 80, refLow: 40, refHigh: 90, category: 'Heart / Lipids', trend: '↑', status: 'Elevated' },
+        'hs-CRP': { values: [0.4, 0.52, 0.12, 11.6], unit: 'mg/L', optLow: 0, optHigh: 1, refLow: 0, refHigh: 3, category: 'Heart / Lipids', trend: 'Spike ↑↑', status: 'CRITICAL' },
+        'Homocysteine': { values: [6.4, 7.5, 8.96, null], unit: 'µmol/L', optLow: 5, optHigh: 7, refLow: 0, refHigh: 10, category: 'Heart / Lipids', trend: '↑ slight', status: 'Watch' },
+        'Lp(a)': { values: [19.9, null, 41, null], unit: 'mg/dL', optLow: 0, optHigh: 10, refLow: 0, refHigh: 30, category: 'Heart / Lipids', trend: '↑ bad', status: 'Elevated' },
+        // GROWTH
+        'IGF-1': { values: [194.6, 210, 166, null], unit: 'ng/mL', optLow: 100, optHigh: 233, refLow: 83, refHigh: 233, category: 'Growth', trend: '↓', status: 'Normal' },
+        // IRON
+        'Ferritin': { values: [null, 130.4, 50.6, 74], unit: 'ng/mL', optLow: 50, optHigh: 150, refLow: 38, refHigh: 380, category: 'Iron Studies', trend: '↓ then ↑', status: 'Optimal' },
+        'Iron': { values: [173, null, 85.9, 142], unit: 'µg/dL', optLow: 60, optHigh: 170, refLow: 50, refHigh: 180, category: 'Iron Studies', trend: 'Variable', status: 'Normal' },
+        // CBC
+        'RBC': { values: [4.9, 4.8, 5.18, 4.63], unit: 'M/µL', optLow: 4.5, optHigh: 5.5, refLow: 4.2, refHigh: 5.8, category: 'CBC', trend: 'Stable', status: 'Normal' },
+        'Hemoglobin': { values: [15.7, 15.1, 15, 15], unit: 'g/dL', optLow: 14, optHigh: 17, refLow: 13.5, refHigh: 17.5, category: 'CBC', trend: 'Stable', status: 'Normal' },
+        'Hematocrit': { values: [44.6, 42.8, 43.8, 43.8], unit: '%', optLow: 42, optHigh: 50, refLow: 39, refHigh: 51, category: 'CBC', trend: 'Stable', status: 'Normal' },
+        'Platelets': { values: [208, 213, 170, 170], unit: 'k/µL', optLow: 150, optHigh: 350, refLow: 140, refHigh: 400, category: 'CBC', trend: '↓ slight', status: 'Normal' },
+        'WBC': { values: [6.32, 7.52, 6.63, 6.63], unit: 'k/µL', optLow: 4.5, optHigh: 10, refLow: 4.5, refHigh: 11, category: 'CBC', trend: 'Stable', status: 'Normal' },
+        // KIDNEY
+        'BUN': { values: [17.4, 24.2, 23, 18], unit: 'mg/dL', optLow: 7, optHigh: 20, refLow: 7, refHigh: 25, category: 'Kidney', trend: 'Stable', status: 'Normal' },
+        'Creatinine': { values: [1.21, 1.12, 1.12, 1.14], unit: 'mg/dL', optLow: 0.7, optHigh: 1.2, refLow: 0.7, refHigh: 1.3, category: 'Kidney', trend: 'Stable', status: 'Normal' },
+        'eGFR': { values: [null, null, null, 89], unit: 'mL/min', optLow: 90, optHigh: 120, refLow: 60, refHigh: 150, category: 'Kidney', trend: '—', status: 'Normal' },
+        'Uric Acid': { values: [null, 6.5, 5.88, 4.9], unit: 'mg/dL', optLow: 3, optHigh: 6, refLow: 3.4, refHigh: 7, category: 'Kidney', trend: '↓ good', status: 'Optimal' },
+        // ELECTROLYTES
+        'Sodium': { values: [139, 139, 137, 138], unit: 'mmol/L', optLow: 136, optHigh: 144, refLow: 135, refHigh: 146, category: 'Electrolytes', trend: 'Stable', status: 'Normal' },
+        'Potassium': { values: [4.3, 4.3, 4.32, 4.5], unit: 'mmol/L', optLow: 3.5, optHigh: 5, refLow: 3.5, refHigh: 5.3, category: 'Electrolytes', trend: 'Stable', status: 'Normal' },
+        'Calcium': { values: [8.9, 9.2, 9.7, 9], unit: 'mg/dL', optLow: 8.6, optHigh: 10, refLow: 8.6, refHigh: 10.3, category: 'Electrolytes', trend: 'Stable', status: 'Normal' },
+        'Magnesium': { values: [2.0, 1.8, 2.11, null], unit: 'mg/dL', optLow: 2.0, optHigh: 2.5, refLow: 1.7, refHigh: 2.55, category: 'Electrolytes', trend: '↑ good', status: 'Normal' },
+        // VITAMINS
+        'Vitamin D': { values: [61.4, 66.4, 52, 40], unit: 'ng/mL', optLow: 50, optHigh: 80, refLow: 30, refHigh: 100, category: 'Vitamins', trend: '↓', status: 'Low-normal' },
+        'Vitamin B12': { values: [491, 496, 742, null], unit: 'pg/mL', optLow: 400, optHigh: 900, refLow: 197, refHigh: 771, category: 'Vitamins', trend: '↑ good', status: 'Good' },
+        'Folate': { values: [18.8, 13.54, 12.2, null], unit: 'ng/mL', optLow: 10, optHigh: 20, refLow: 4.4, refHigh: 20, category: 'Vitamins', trend: '↓', status: 'Normal' },
+        'Zinc': { values: [69, 96, 83, null], unit: 'µg/dL', optLow: 70, optHigh: 110, refLow: 60, refHigh: 120, category: 'Vitamins', trend: 'Variable', status: 'Normal' },
+        'Copper': { values: [119, 67.9, 71, null], unit: 'µg/dL', optLow: 70, optHigh: 130, refLow: 70, refHigh: 140, category: 'Vitamins', trend: '↓', status: 'Normal' }
+    }
+};
+
+// ════════════════════════════════════════════════════════════════
+// CHART DEFAULTS
+// ════════════════════════════════════════════════════════════════
+Chart.defaults.color = 'rgba(255,255,255,0.6)';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.08)';
+Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.plugins.legend.labels.boxWidth = 12;
+
+const chartOpts = (title) => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+        legend: { display: true, position: 'top' },
+        title: { display: false }
+    },
+    scales: {
+        x: { grid: { display: false }, ticks: { maxTicksLimit: 12 } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' } }
+    }
+});
+
+// ════════════════════════════════════════════════════════════════
+// OURA DASHBOARD DROPDOWN (Today / 7d / 30d)
+// ════════════════════════════════════════════════════════════════
+function updateOuraDashboard() {
+    const range = document.getElementById('oura-dash-range').value;
+    let n;
+    if (range === 'today') n = 1;
+    else if (range === '7') n = 7;
+    else n = 30;
+
+    // Get last N entries from each dataset
+    const recentSleep = sleepScores.slice(-n);
+    const recentReady = readinessScores.slice(-n);
+    const recentActivity = activityData.slice(-n);
+    const recentSessions = sleepSessions.slice(-n);
+
+    // Compute averages (or single day for "today")
+    const avg = (arr, key) => {
+        const valid = arr.map(a => typeof key === 'function' ? key(a) : a[key]).filter(v => v != null && !isNaN(v));
+        return valid.length ? valid.reduce((s, v) => s + v, 0) / valid.length : 0;
+    };
+
+    const readinessAvg = Math.round(avg(recentReady, 'value'));
+    const sleepAvg = Math.round(avg(recentSleep, 'value'));
+    const activityAvg = Math.round(avg(recentActivity, 'score'));
+
+    // Update ring scores
+    document.getElementById('dash-readiness-val').textContent = readinessAvg;
+    document.getElementById('dash-sleep-val').textContent = sleepAvg;
+    document.getElementById('dash-activity-val').textContent = activityAvg;
+    document.getElementById('dash-ring-readiness').style.setProperty('--pct', readinessAvg);
+    document.getElementById('dash-ring-sleep').style.setProperty('--pct', sleepAvg);
+    document.getElementById('dash-ring-activity').style.setProperty('--pct', activityAvg);
+
+    // Vitals from sleep sessions
+    const hrAvg = Math.round(avg(recentSessions, 'lowestHr'));
+    const hrvAvg = Math.round(avg(recentSessions, 'hrv'));
+    const totalSleepHrs = (avg(recentSessions, 'total') / 3600).toFixed(1);
+    const deepHrs = (avg(recentSessions, 'deep') / 3600).toFixed(1);
+    const remHrs = (avg(recentSessions, 'rem') / 3600).toFixed(1);
+
+    // Steps & cals from activity
+    const stepsAvg = Math.round(avg(recentActivity, 'steps'));
+    const calsAvg = Math.round(avg(recentActivity, 'cal'));
+
+    document.getElementById('dash-hr').textContent = hrAvg;
+    document.getElementById('dash-hrv').textContent = hrvAvg;
+    document.getElementById('dash-sleep-hrs').textContent = totalSleepHrs;
+    document.getElementById('dash-deep').textContent = deepHrs;
+    document.getElementById('dash-rem').textContent = remHrs;
+    document.getElementById('dash-steps').textContent = stepsAvg.toLocaleString();
+    document.getElementById('dash-cals').textContent = calsAvg.toLocaleString();
+
+    // Update period label
+    const label = document.getElementById('oura-dash-period-label');
+    if (range === 'today') {
+        const last = recentSleep[recentSleep.length - 1];
+        label.textContent = last ? last.display.replace('-', '/') : 'Today';
+    } else {
+        const first = recentSleep[0];
+        const last = recentSleep[recentSleep.length - 1];
+        label.textContent = (first ? first.display : '') + ' – ' + (last ? last.display : '') + ' (avg)';
+    }
+}
+
+function updateOuraTab() {
+    const range = document.getElementById('oura-tab-range').value;
+    let n = range === 'today' ? 1 : parseInt(range);
+
+    const recentSleep = sleepScores.slice(-n);
+    const recentReady = readinessScores.slice(-n);
+    const recentActivity = activityData.slice(-n);
+    const recentSessions = sleepSessions.slice(-n);
+
+    const avg = (arr, key) => {
+        const valid = arr.map(a => typeof key === 'function' ? key(a) : a[key]).filter(v => v != null && !isNaN(v));
+        return valid.length ? valid.reduce((s, v) => s + v, 0) / valid.length : 0;
+    };
+
+    const readinessAvg = Math.round(avg(recentReady, 'value'));
+    const sleepAvg = Math.round(avg(recentSleep, 'value'));
+    const activityAvg = Math.round(avg(recentActivity, 'score'));
+
+    document.getElementById('oura-readiness').textContent = readinessAvg;
+    document.getElementById('oura-sleep').textContent = sleepAvg;
+    document.getElementById('oura-activity').textContent = activityAvg;
+    document.getElementById('oura-tab-ring-readiness').style.setProperty('--pct', readinessAvg);
+    document.getElementById('oura-tab-ring-sleep').style.setProperty('--pct', sleepAvg);
+    document.getElementById('oura-tab-ring-activity').style.setProperty('--pct', activityAvg);
+
+    const hrAvg = Math.round(avg(recentSessions, 'lowestHr'));
+    const hrvAvg = Math.round(avg(recentSessions, 'hrv'));
+    const totalHrs = (avg(recentSessions, 'total') / 3600).toFixed(1);
+    const deepHrs = (avg(recentSessions, 'deep') / 3600).toFixed(1);
+    const remHrs = (avg(recentSessions, 'rem') / 3600).toFixed(1);
+    const respAvg = avg(recentSessions, 'respRate').toFixed(1);
+    const stepsAvg = Math.round(avg(recentActivity, 'steps'));
+    const calsAvg = Math.round(avg(recentActivity, 'cal'));
+
+    const setHtml = (id, val, unit) => { document.getElementById(id).innerHTML = val + '<span style="font-size:12px;color:var(--text-muted);"> ' + unit + '</span>'; };
+    setHtml('oura-tab-hr', hrAvg, 'bpm');
+    setHtml('oura-tab-hrv', hrvAvg, 'ms');
+    setHtml('oura-tab-sleep-hrs', totalHrs, 'hrs');
+    setHtml('oura-tab-deep', deepHrs, 'hrs');
+    setHtml('oura-tab-rem', remHrs, 'hrs');
+    setHtml('oura-tab-resp', respAvg, 'br/min');
+    document.getElementById('oura-tab-steps').textContent = stepsAvg.toLocaleString();
+    document.getElementById('oura-tab-cals').textContent = calsAvg.toLocaleString();
+
+    const periodEl = document.getElementById('oura-tab-period');
+    if (range === 'today') {
+        const last = recentSleep[recentSleep.length - 1];
+        periodEl.textContent = last ? last.display.replace('-', '/') : 'Today';
+    } else {
+        const first = recentSleep[0];
+        const last = recentSleep[recentSleep.length - 1];
+        periodEl.textContent = (first ? first.display : '') + ' – ' + (last ? last.display : '') + ' (avg of ' + n + ' days)';
+    }
+}
+
+// ════════════════════════════════════════════════════════════════
+// WEEKLY ANALYSIS ENGINE
+// ════════════════════════════════════════════════════════════════
+function buildWeeklyAnalysis() {
+    const KICKOFF = '2026-02-27';
+
+    // Helper: slice data by date range
+    function sliceByDate(arr, before, after) {
+        return arr.filter(d => {
+            if (before && d.date >= before) return false;
+            if (after && d.date < after) return false;
+            return true;
+        });
+    }
+
+    const avg = (arr, key) => {
+        const vals = arr.map(a => typeof key === 'function' ? key(a) : a[key]).filter(v => v != null && !isNaN(v));
+        return vals.length ? vals.reduce((s,v) => s+v, 0) / vals.length : null;
+    };
+
+    // Baseline = pre-kickoff (Dec 26 – Feb 26)
+    const baselineSleep = sliceByDate(sleepScores, KICKOFF);
+    const baselineReady = sliceByDate(readinessScores, KICKOFF);
+    const baselineActivity = sliceByDate(activityData, KICKOFF);
+    const baselineSessions = sliceByDate(sleepSessions, KICKOFF);
+
+    // Last 30 entries
+    const l30Sleep = sleepScores.slice(-30);
+    const l30Ready = readinessScores.slice(-30);
+    const l30Activity = activityData.slice(-30);
+    const l30Sessions = sleepSessions.slice(-30);
+
+    // Last 7 days
+    const l7Sleep = sleepScores.slice(-7);
+    const l7Ready = readinessScores.slice(-7);
+    const l7Activity = activityData.slice(-7);
+    const l7Sessions = sleepSessions.slice(-7);
+
+    // Compute metrics for each period
+    function computeMetrics(sleep, ready, activity, sessions) {
+        return {
+            readiness: Math.round(avg(ready, 'value') || 0),
+            sleepScore: Math.round(avg(sleep, 'value') || 0),
+            activityScore: Math.round(avg(activity, 'score') || 0),
+            totalSleep: avg(sessions, 'total') ? (avg(sessions, 'total') / 3600).toFixed(1) : '—',
+            deepSleep: avg(sessions, 'deep') ? (avg(sessions, 'deep') / 3600).toFixed(1) : '—',
+            remSleep: avg(sessions, 'rem') ? (avg(sessions, 'rem') / 3600).toFixed(1) : '—',
+            lowestHr: Math.round(avg(sessions, 'lowestHr') || 0),
+            hrv: Math.round(avg(sessions, 'hrv') || 0),
+            steps: Math.round(avg(activity, 'steps') || 0),
+            calories: Math.round(avg(activity, 'cal') || 0),
+            respRate: avg(sessions, 'respRate') ? avg(sessions, 'respRate').toFixed(1) : '—',
+            efficiency: avg(sessions, 'efficiency') ? avg(sessions, 'efficiency').toFixed(0) : '—'
+        };
+    }
+
+    const baseline = computeMetrics(baselineSleep, baselineReady, baselineActivity, baselineSessions);
+    const last30 = computeMetrics(l30Sleep, l30Ready, l30Activity, l30Sessions);
+    const last7 = computeMetrics(l7Sleep, l7Ready, l7Activity, l7Sessions);
+
+    // Build comparison table rows
+    const metrics = [
+        { label: 'Readiness Score', key: 'readiness', unit: '', good: 'higher' },
+        { label: 'Sleep Score', key: 'sleepScore', unit: '', good: 'higher' },
+        { label: 'Activity Score', key: 'activityScore', unit: '', good: 'higher' },
+        { label: 'Total Sleep', key: 'totalSleep', unit: ' hrs', good: 'higher' },
+        { label: 'Deep Sleep', key: 'deepSleep', unit: ' hrs', good: 'higher' },
+        { label: 'REM Sleep', key: 'remSleep', unit: ' hrs', good: 'higher' },
+        { label: 'Lowest HR', key: 'lowestHr', unit: ' bpm', good: 'lower' },
+        { label: 'Avg HRV', key: 'hrv', unit: ' ms', good: 'higher' },
+        { label: 'Daily Steps', key: 'steps', unit: '', good: 'higher', format: true },
+        { label: 'Active Calories', key: 'calories', unit: '', good: 'higher', format: true },
+        { label: 'Sleep Efficiency', key: 'efficiency', unit: '%', good: 'higher' },
+        { label: 'Resp Rate', key: 'respRate', unit: ' br/min', good: 'neutral' }
+    ];
+
+    let html = '';
+    metrics.forEach(m => {
+        const b = baseline[m.key];
+        const t = last30[m.key];
+        const w = last7[m.key];
+
+        // Delta calculation (last 7 vs baseline)
+        let deltaHtml = '—';
+        if (b !== '—' && w !== '—' && !isNaN(b) && !isNaN(w) && b > 0) {
+            const bNum = parseFloat(b);
+            const wNum = parseFloat(w);
+            const pct = ((wNum - bNum) / bNum * 100).toFixed(1);
+            const diff = wNum - bNum;
+            let color, arrow;
+            if (m.good === 'higher') {
+                color = diff >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+                arrow = diff >= 0 ? '↑' : '↓';
+            } else if (m.good === 'lower') {
+                color = diff <= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+                arrow = diff >= 0 ? '↑' : '↓';
+            } else {
+                color = 'var(--text-muted)';
+                arrow = diff >= 0 ? '↑' : '↓';
+            }
+            deltaHtml = '<span style="color:' + color + ';font-weight:600;">' + arrow + ' ' + Math.abs(pct) + '%</span>';
+        }
+
+        const fmtVal = (v) => {
+            if (v === '—') return '—';
+            return m.format ? Number(v).toLocaleString() : v;
+        };
+
+        html += '<tr style="border-bottom:1px solid rgba(255,255,255,0.04);">';
+        html += '<td style="padding:10px 12px;font-weight:500;color:var(--text-primary);">' + m.label + '</td>';
+        html += '<td style="padding:10px 12px;text-align:center;color:var(--text-muted);">' + fmtVal(b) + '<span style="font-size:11px;color:var(--text-muted);">' + m.unit + '</span></td>';
+        html += '<td style="padding:10px 12px;text-align:center;color:var(--text-secondary);">' + fmtVal(t) + '<span style="font-size:11px;color:var(--text-muted);">' + m.unit + '</span></td>';
+        html += '<td style="padding:10px 12px;text-align:center;font-weight:600;color:var(--text-primary);">' + fmtVal(w) + '<span style="font-size:11px;color:var(--text-muted);">' + m.unit + '</span></td>';
+        html += '<td style="padding:10px 12px;text-align:center;">' + deltaHtml + '</td>';
+        html += '</tr>';
+    });
+    document.getElementById('analysis-table-body').innerHTML = html;
+
+    // ── Wins & Progress ──
+    const wins = [];
+    const bSteps = parseFloat(baseline.steps);
+    const wSteps = parseFloat(last7.steps);
+    if (wSteps > bSteps) wins.push('Steps up ' + Math.round(((wSteps - bSteps)/bSteps)*100) + '% vs baseline (' + bSteps.toLocaleString() + ' → ' + wSteps.toLocaleString() + '/day). Hitting new target zone.');
+    wins.push('Weight down 5.8 lbs in 19 days (185 → 179.2). Hit a low of 178.7 on Mar 13. Tracking at -2.1 lbs/week — exceeding target. Next goal: 177 lbs by Mar 22.');
+    wins.push('Nutrition strategy evolving — introducing refeed days to prevent metabolic adaptation as body gets leaner. Smart long-term approach.');
+    wins.push('Mental energy rated 9/10 — consistently high since program start. Enclomiphene + lifestyle changes clearly working.');
+    wins.push('Morning wood returned to 7/7 days, erection hardness 8-9/10. Major improvement from pre-program baseline.');
+    wins.push('HbA1c trending optimal at 4.9% — metabolic health is excellent.');
+    if (parseFloat(last7.deepSleep) > parseFloat(baseline.deepSleep)) {
+        wins.push('Deep sleep trending up vs baseline (' + baseline.deepSleep + 'h → ' + last7.deepSleep + 'h). Recovery improving.');
+    }
+    document.getElementById('analysis-wins').innerHTML = wins.map(w => '→ ' + w).join('<br>');
+
+    // ── Watch List ──
+    const watch = [];
+    if (parseFloat(last7.totalSleep) < 7) {
+        watch.push('<strong>Sleep still inconsistent:</strong> Averaging only ' + last7.totalSleep + ' hrs/night (last 7d). Discussed on Mar 16 call — Oura data showing inconsistencies. Sleep quality and consistency is the #1 limiter. Strict bedtime routine is non-negotiable.');
+    }
+    watch.push('<strong>HRV still low:</strong> ' + last7.hrv + 'ms (last 7d) vs ' + baseline.hrv + 'ms baseline. Low HRV paired with inconsistent sleep suggests sympathetic overdrive. Need to prioritize parasympathetic recovery (breathing, no screens before bed).');
+    watch.push('<strong>Plateau zone approaching:</strong> As Graydon gets leaner (now under 180), weight loss will naturally slow. Per Mar 16 call: tighter calorie tracking and strategic refeed days are the plan to push through.');
+    watch.push('<strong>Estradiol at 44 pg/mL</strong> — above optimal (10-30). DIM 300mg daily started, but may need aromatase inhibitor if next labs still high. Retest in 4-6 weeks.');
+    watch.push('<strong>Vitamin D declining:</strong> 61→66→52→40 ng/mL across 4 draws. Needs supplementation increase. Currently suboptimal for testosterone support.');
+    watch.push('<strong>Free Testosterone dropping:</strong> 254.7 → 114.2 pg/mL over 18 months despite total T recovering. SHBG dropping (25) may indicate liver/metabolic factor. Watch on next labs.');
+    watch.push('<strong>ApoB elevated at 96 mg/dL</strong> (target <80). Combined with Lp(a) at 41 — cardiovascular risk markers need attention.');
+    document.getElementById('analysis-watch').innerHTML = watch.map(w => '→ ' + w).join('<br><br>');
+
+    // ── Coaching Call Feedback (Mar 16) ──
+    const coaching = [
+        '<strong>Weight:</strong> 179.2 lbs — down 5.8 lbs total (185 → 179.2). Low of 178.7 on Mar 13. Target: 177 lbs by Mar 22.',
+        '<strong>Nutrition:</strong> Calorie tracking consistency is the priority. Discussed strategic "refeed" days with higher carbs to prevent metabolic adaptation and support training.',
+        '<strong>Enclomiphene:</strong> Continuing current protocol. Monitoring testosterone response — dosage may need adjustment over time based on next labs.',
+        '<strong>Sleep:</strong> Oura data still showing inconsistencies. Sleep quality and consistency remain the #1 limiting factor. Needs strict bedtime routine.',
+        '<strong>Plateau Prep:</strong> As Graydon gets leaner, weight loss will slow. More precise tracking needed. Refeed timing and increased NEAT are the levers.',
+        '<strong>Dashboard:</strong> Reviewed the new health tracker together on call. Integrating spreadsheet + Oura data. Dashboard now fully operational.'
+    ];
+    document.getElementById('analysis-coaching').innerHTML = coaching.join('<br>');
+
+    // ── Coach's Analysis Summary (Updated Mar 16) ──
+    const summary = [
+        'Graydon is 19 days into Phase 1 (Foundation Reset) and the trajectory remains strong. Down 5.8 lbs in ~2.5 weeks (185 → 179.2, with a low of 178.7 on Mar 13) — exceeding the 2 lb/week target. On today\'s call we set an aggressive but achievable target of <strong>177 lbs by Mar 22</strong>. The Enclomiphene is delivering clear subjective benefits — morning wood and erection quality are dramatically improved from baseline.',
+        '',
+        'The biggest risk factor remains <strong>sleep</strong>. Oura data shows total sleep averaging ' + last7.totalSleep + ' hrs/night over the last 7 days, with ongoing inconsistencies. This is well below the 7-8 hour minimum needed for optimal testosterone production, cortisol regulation, and body composition. Low HRV (' + last7.hrv + 'ms) and elevated cortisol (13.3 µg/dL on last labs) are downstream effects. A strict bedtime routine is the single most important habit change right now.',
+        '',
+        'As Graydon gets leaner, we\'re entering the zone where <strong>weight loss naturally slows</strong>. This is expected — not a sign that anything is wrong. The strategy going forward: tighten calorie tracking consistency (every meal logged), introduce strategic refeed days with higher carbs to prevent metabolic adaptation, increase NEAT, and stay patient through any plateaus. Precise tracking becomes the difference-maker from here.',
+        '',
+        'Hormonal picture is mixed: Total T recovered to 639 but Free T continues declining (114.2). Estradiol at 44 is too high — the DIM should help, but if next labs don\'t show improvement, we may need to escalate. Continuing to monitor enclomiphene dosage impact.',
+        '',
+        '<strong>Priority actions this week:</strong> (1) Hit 177 lbs by Mar 22, (2) Log every meal — calorie tracking consistency is non-negotiable, (3) Enforce strict bedtime routine for sleep quality, (4) Consider first refeed day if energy drops, (5) Push daily steps toward 7,500+, (6) Continue enclomiphene — watch T response for next labs.'
+    ];
+    document.getElementById('analysis-summary').innerHTML = summary.join('<br>');
+}
+
+// ════════════════════════════════════════════════════════════════
+// BUILD CHARTS ON LOAD
+// ════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+    buildDashWeightChart();
+    buildOuraCharts();
+    buildWeightChart();
+    // buildBodyFatChart(); — replaced with HTML gauge
+    buildDexaChart();
+    buildBloodworkCharts();
+    buildBloodTable();
+    updateOuraDashboard();
+    updateOuraTab();
+    updateProgramDay();
+    buildWeeklyAnalysis();
+});
+
+function updateProgramDay() {
+    const start = new Date('2026-02-25');
+    const now = new Date();
+    const diff = Math.floor((now - start) / 86400000);
+    const el = document.getElementById('program-day');
+    if (el) el.textContent = diff > 0 ? diff : 19;
+}
+
+// ── Dashboard Weight Mini Chart ──
+function buildDashWeightChart() {
+    new Chart(document.getElementById('dashWeightChart'), {
+        type: 'line',
+        data: {
+            labels: weightData.map(w => w.date.slice(5)),
+            datasets: [{
+                label: 'Weight (lbs)',
+                data: weightData.map(w => w.lbs),
+                borderColor: '#4facfe',
+                backgroundColor: 'rgba(79,172,254,0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 5,
+                pointBackgroundColor: '#4facfe'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.6)' } },
+                y: { min: 168, max: 188, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: 'rgba(255,255,255,0.6)' } }
+            },
+            plugins: {
+                legend: { display: false },
+                annotation: undefined
+            }
+        }
+    });
+}
+
+// ── Oura Charts ──
+function buildOuraCharts() {
+    const labels = sleepScores.map(s => s.display);
+
+    // Score Trends
+    new Chart(document.getElementById('ouraScoresChart'), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                { label: 'Readiness', data: readinessScores.map(s => s.value), borderColor: '#43e97b', backgroundColor: 'transparent', tension: 0.3, pointRadius: 1 },
+                { label: 'Sleep', data: sleepScores.map(s => s.value), borderColor: '#4facfe', backgroundColor: 'transparent', tension: 0.3, pointRadius: 1 },
+                { label: 'Activity', data: activityData.map(a => a.score), borderColor: '#f7971e', backgroundColor: 'transparent', tension: 0.3, pointRadius: 1 }
+            ]
+        },
+        options: chartOpts()
+    });
+
+    // Sleep Duration
+    const durLabels = sleepSessions.map(s => s.display);
+    new Chart(document.getElementById('ouraSleepDurChart'), {
+        type: 'bar',
+        data: {
+            labels: durLabels,
+            datasets: [
+                { label: 'Deep', data: sleepSessions.map(s => +(s.deep / 3600).toFixed(1)), backgroundColor: '#6366f1', stack: 'a' },
+                { label: 'REM', data: sleepSessions.map(s => +(s.rem / 3600).toFixed(1)), backgroundColor: '#4facfe', stack: 'a' },
+                { label: 'Light', data: sleepSessions.map(s => +(s.light / 3600).toFixed(1)), backgroundColor: 'rgba(255,255,255,0.15)', stack: 'a' }
+            ]
+        },
+        options: { ...chartOpts(), scales: { x: { stacked: true, grid: { display: false }, ticks: { maxTicksLimit: 12 } }, y: { stacked: true, title: { display: true, text: 'Hours' }, grid: { color: 'rgba(255,255,255,0.05)' } } } }
+    });
+
+    // HR & HRV
+    new Chart(document.getElementById('ouraHrHrvChart'), {
+        type: 'line',
+        data: {
+            labels: durLabels,
+            datasets: [
+                { label: 'Lowest HR', data: sleepSessions.map(s => s.lowestHr), borderColor: '#f5576c', tension: 0.3, pointRadius: 1, yAxisID: 'y' },
+                { label: 'HRV', data: sleepSessions.map(s => s.hrv), borderColor: '#43e97b', tension: 0.3, pointRadius: 1, yAxisID: 'y1' }
+            ]
+        },
+        options: {
+            ...chartOpts(),
+            scales: {
+                x: { grid: { display: false }, ticks: { maxTicksLimit: 12 } },
+                y: { position: 'left', title: { display: true, text: 'HR (bpm)' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                y1: { position: 'right', title: { display: true, text: 'HRV (ms)' }, grid: { display: false } }
+            }
+        }
+    });
+
+    // Steps
+    new Chart(document.getElementById('ouraStepsChart'), {
+        type: 'bar',
+        data: {
+            labels: activityData.map(a => a.display),
+            datasets: [{
+                label: 'Steps',
+                data: activityData.map(a => a.steps),
+                backgroundColor: activityData.map(a => a.steps >= 7500 ? 'rgba(67,233,123,0.6)' : a.steps >= 5000 ? 'rgba(247,151,30,0.6)' : 'rgba(245,87,108,0.6)'),
+                borderRadius: 3
+            }]
+        },
+        options: { ...chartOpts(), plugins: { legend: { display: false } } }
+    });
+}
+
+// ── Weight Chart ──
+function buildWeightChart() {
+    new Chart(document.getElementById('weightChart'), {
+        type: 'line',
+        data: {
+            labels: weightData.map(w => w.date.slice(5)),
+            datasets: [
+                {
+                    label: 'Weight (lbs)',
+                    data: weightData.map(w => w.lbs),
+                    borderColor: '#4facfe',
+                    backgroundColor: 'rgba(79,172,254,0.15)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 6,
+                    pointBackgroundColor: '#4facfe'
+                },
+                {
+                    label: 'Target (175)',
+                    data: weightData.map(() => 175),
+                    borderColor: 'rgba(67,233,123,0.4)',
+                    borderDash: [5, 5],
+                    pointRadius: 0,
+                    fill: false
+                }
+            ]
+        },
+        options: {
+            ...chartOpts(),
+            scales: {
+                x: { grid: { display: false } },
+                y: { min: 168, max: 188, grid: { color: 'rgba(255,255,255,0.05)' } }
+            }
+        }
+    });
+}
+
+// ── Body Fat Chart ──
+// bodyFatChart removed — replaced with visual gauge in HTML
+
+// ── DEXA Regional Chart ──
+function buildDexaChart() {
+    new Chart(document.getElementById('dexaChart'), {
+        type: 'bar',
+        data: {
+            labels: ['Arms', 'Legs', 'Trunk', 'Android (Belly)', 'Gynoid (Hips)'],
+            datasets: [{
+                label: 'Body Fat %',
+                data: [15.2, 17.8, 20.3, 24.1, 16.5],
+                backgroundColor: [
+                    'rgba(79,172,254,0.7)',
+                    'rgba(79,172,254,0.7)',
+                    'rgba(247,151,30,0.7)',
+                    'rgba(245,87,108,0.7)',
+                    'rgba(67,233,123,0.7)'
+                ],
+                borderRadius: 6
+            }]
+        },
+        options: {
+            ...chartOpts(),
+            indexAxis: 'y',
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { min: 0, max: 30, grid: { color: 'rgba(255,255,255,0.05)' } },
+                y: { grid: { display: false } }
+            }
+        }
+    });
+}
+
+// ── Bloodwork Charts ──
+function buildBloodworkCharts() {
+    const dates = bloodwork.dates;
+
+    // Helper: build a single dot-line chart for one marker
+    function dotLineChart(canvasId, label, data, color, unit, optLow, optHigh, yMin, yMax) {
+        const ctx = document.getElementById(canvasId);
+        if (!ctx) return;
+        const datasets = [{
+            label: label,
+            data: data,
+            borderColor: color,
+            backgroundColor: color + '22',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 7,
+            pointHoverRadius: 10,
+            pointBackgroundColor: color,
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            borderWidth: 2.5,
+            spanGaps: true
+        }];
+        // Add optimal range band
+        if (optHigh !== null) {
+            datasets.push({
+                label: 'Optimal High (' + optHigh + ')',
+                data: [optHigh, optHigh, optHigh, optHigh],
+                borderColor: 'rgba(67,233,123,0.3)',
+                borderDash: [5, 5],
+                pointRadius: 0,
+                borderWidth: 1,
+                fill: false
+            });
+        }
+        if (optLow !== null && optLow > 0) {
+            datasets.push({
+                label: 'Optimal Low (' + optLow + ')',
+                data: [optLow, optLow, optLow, optLow],
+                borderColor: 'rgba(67,233,123,0.3)',
+                borderDash: [5, 5],
+                pointRadius: 0,
+                borderWidth: 1,
+                fill: false
+            });
+        }
+        new Chart(ctx, {
+            type: 'line',
+            data: { labels: dates, datasets },
+            options: {
+                ...chartOpts(),
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                return ctx.dataset.label + ': ' + (ctx.parsed.y !== null ? ctx.parsed.y + ' ' + unit : 'N/A');
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 11 } } },
+                    y: { min: yMin, max: yMax, title: { display: true, text: unit, color: 'rgba(255,255,255,0.5)', font: { size: 11 } }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                }
+            }
+        });
+    }
+
+    // ── Hormone Charts ──
+    dotLineChart('totalTChart', 'Total Testosterone', [701, 745, 571, 639], '#4facfe', 'ng/dL', 600, 900, 400, 1000);
+    dotLineChart('freeTChart', 'Free Testosterone', [197.3, 254.7, 124, 114.2], '#a855f7', 'pg/mL', 100, 224, 0, 300);
+    dotLineChart('estradiolChart', 'Estradiol (E2)', [28.72, 29.68, 30.2, 44], '#f5576c', 'pg/mL', 10, 30, 0, 55);
+
+    // hs-CRP trend
+    new Chart(document.getElementById('crpChart'), {
+        type: 'line',
+        data: {
+            labels: dates,
+            datasets: [
+                {
+                    label: 'hs-CRP (mg/L)',
+                    data: [0.4, 0.52, 0.12, 11.6],
+                    borderColor: '#f5576c',
+                    backgroundColor: 'rgba(245,87,108,0.2)',
+                    fill: true, tension: 0.3, pointRadius: 8,
+                    pointBackgroundColor: [
+                        'rgba(67,233,123,0.8)', 'rgba(67,233,123,0.8)', 'rgba(67,233,123,0.8)', '#f5576c'
+                    ]
+                },
+                {
+                    label: 'Normal (<1)',
+                    data: [1, 1, 1, 1],
+                    borderColor: 'rgba(67,233,123,0.3)', borderDash: [5,5], pointRadius: 0
+                },
+                {
+                    label: 'High Risk (>3)',
+                    data: [3, 3, 3, 3],
+                    borderColor: 'rgba(247,151,30,0.3)', borderDash: [5,5], pointRadius: 0
+                }
+            ]
+        },
+        options: { ...chartOpts(), scales: { x: { grid: { display: false } }, y: { min: 0, max: 14 } } }
+    });
+
+    // ── Metabolic Charts ──
+    dotLineChart('glucoseChart', 'Glucose', [74.7, 80.4, 63, 92], '#4facfe', 'mg/dL', 70, 90, 50, 110);
+    dotLineChart('hba1cChart', 'HbA1c', [5.1, 5.3, 5.0, 4.9], '#43e97b', '%', 4.5, 5.2, 4, 6);
+    dotLineChart('insulinChart', 'Insulin', [4.3, 3.7, 3.95, null], '#f7971e', 'µU/mL', 2, 5, 0, 10);
+    dotLineChart('apobChart', 'ApoB', [80.37, null, 77, 96], '#f5576c', 'mg/dL', 40, 80, 30, 120);
+
+    // ── Thyroid Charts ──
+    dotLineChart('tshChart', 'TSH', [0.76, 0.38, 0.979, 0.58], '#4facfe', 'mIU/L', 0.5, 2.5, 0, 3);
+    dotLineChart('freeT4Chart', 'Free T4', [0.98, 1.07, 1.13, 2], '#43e97b', 'ng/dL', 0.9, 1.5, 0, 2.5);
+    dotLineChart('freeT3Chart', 'Free T3', [2.65, 2.74, 3.09, null], '#a855f7', 'pg/mL', 2.5, 4.0, 2, 4.5);
+}
+
+// ── Blood Table ──
+function buildBloodTable() {
+    const tbody = document.getElementById('bloodTableBody');
+    const categories = {};
+
+    for (const [name, data] of Object.entries(bloodwork.markers)) {
+        if (!categories[data.category]) categories[data.category] = [];
+        categories[data.category].push({ name, ...data });
+    }
+
+    for (const [cat, markers] of Object.entries(categories)) {
+        const catRow = document.createElement('tr');
+        catRow.innerHTML = `<td colspan="8" style="font-weight:700;color:var(--accent-blue);text-transform:uppercase;font-size:11px;letter-spacing:1px;padding-top:16px;">${cat}</td>`;
+        tbody.appendChild(catRow);
+
+        for (const m of markers) {
+            const latest = m.values.filter(v => v !== null).pop();
+            let statusColor = 'green';
+            const st = (m.status || '').toLowerCase();
+            if (st.includes('critical') || st.includes('high') || st.includes('low')) statusColor = 'red';
+            else if (st.includes('elevat') || st.includes('watch') || st.includes('slight')) statusColor = 'orange';
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td style="font-weight:500;color:var(--text-primary);">${m.name}</td>
+                <td>${m.values[0] !== null ? m.values[0] : '—'}</td>
+                <td>${m.values[1] !== null ? m.values[1] : '—'}</td>
+                <td>${m.values[2] !== null ? m.values[2] : '—'}</td>
+                <td style="font-weight:600;">${m.values[3] !== null ? m.values[3] : '—'}</td>
+                <td style="font-size:11px;">${m.optLow}–${m.optHigh} ${m.unit}</td>
+                <td style="font-size:11px;color:var(--text-secondary);">${m.trend || '—'}</td>
+                <td><span class="badge badge-${statusColor}">${m.status || 'Normal'}</span></td>
+            `;
+            tbody.appendChild(row);
+        }
+    }
+}
+
+// ════════════════════════════════════════════════════════════════
+// OURA API SYNC (when served via HTTP)
+// ════════════════════════════════════════════════════════════════
+const OURA_TOKEN = 'VLRZCLV22J3ZE2V3RT6BENCDWYOFMIAN';
+
+async function syncOuraData() {
+    const statusEl = document.getElementById('oura-sync-status');
+    statusEl.textContent = 'Syncing with Oura API...';
+    statusEl.style.color = 'var(--accent-blue)';
+
+    if (window.location.protocol === 'file:') {
+        statusEl.textContent = 'Cannot sync from file://. Serve via HTTP: python3 -m http.server 8080';
+        statusEl.style.color = 'var(--accent-orange)';
+        return;
+    }
+
+    try {
+        const today = new Date().toISOString().slice(0, 10);
+        const start = '2025-12-26';
+        const base = 'https://api.ouraring.com/v2/usercollection';
+        const headers = { 'Authorization': 'Bearer ' + OURA_TOKEN };
+
+        const [sleepRes, readyRes, actRes] = await Promise.all([
+            fetch(`${base}/daily_sleep?start_date=${start}&end_date=${today}`, { headers }),
+            fetch(`${base}/daily_readiness?start_date=${start}&end_date=${today}`, { headers }),
+            fetch(`${base}/daily_activity?start_date=${start}&end_date=${today}`, { headers })
+        ]);
+
+        if (sleepRes.ok) {
+            const data = await sleepRes.json();
+            if (data.data && data.data.length > 0) {
+                const latest = data.data[data.data.length - 1];
+                document.getElementById('oura-sleep').textContent = latest.score || '—';
+            }
+        }
+        if (readyRes.ok) {
+            const data = await readyRes.json();
+            if (data.data && data.data.length > 0) {
+                const latest = data.data[data.data.length - 1];
+                document.getElementById('oura-readiness').textContent = latest.score || '—';
+            }
+        }
+        if (actRes.ok) {
+            const data = await actRes.json();
+            if (data.data && data.data.length > 0) {
+                const latest = data.data[data.data.length - 1];
+                document.getElementById('oura-activity').textContent = latest.score || '—';
+            }
+        }
+
+        statusEl.textContent = 'Synced successfully at ' + new Date().toLocaleTimeString();
+        statusEl.style.color = 'var(--accent-green)';
+    } catch (e) {
+        statusEl.textContent = 'Sync failed: ' + e.message + '. Make sure you\'re serving via HTTP.';
+        statusEl.style.color = 'var(--accent-red)';
+    }
+}
+
+// Auto-sync if served via HTTP
+if (window.location.protocol !== 'file:') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(syncOuraData, 1000));
+}
+
+// ════════════════════════════════════════════════════════════════
+// PROGRESS PHOTO COMPARISON SYSTEM (with IndexedDB persistence)
+// ════════════════════════════════════════════════════════════════
+const photos = [];
+let currentPhotoView = 'compare';
+let currentCompareAngle = 'front';
+let photoDB = null;
+
+// ── IndexedDB for persistent photo storage ──
+function openPhotoDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open('GraydonPhotos', 1);
+        req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains('photos')) {
+                db.createObjectStore('photos', { keyPath: 'id', autoIncrement: true });
+            }
+        };
+        req.onsuccess = (e) => { photoDB = e.target.result; resolve(photoDB); };
+        req.onerror = (e) => { console.warn('IndexedDB not available:', e); resolve(null); };
+    });
+}
+
+async function savePhotosToDB() {
+    if (!photoDB) return;
+    const tx = photoDB.transaction('photos', 'readwrite');
+    const store = tx.objectStore('photos');
+    // Save alignment first, then clear and re-add
+    const savedAlign = alignmentSettings;
+    store.clear();
+    photos.forEach(p => store.add({ src: p.src, date: p.date, angle: p.angle, name: p.name }));
+    store.put({ id: '_alignment', type: 'alignment', settings: savedAlign });
+}
+
+async function loadPhotosFromDB() {
+    if (!photoDB) return;
+    return new Promise((resolve) => {
+        const tx = photoDB.transaction('photos', 'readonly');
+        const store = tx.objectStore('photos');
+        const req = store.getAll();
+        req.onsuccess = () => {
+            const results = req.result || [];
+            results.forEach(r => {
+                if (r.type === 'alignment') {
+                    alignmentSettings = r.settings || {};
+                    return;
+                }
+                if (!photos.find(p => p.date === r.date && p.angle === r.angle)) {
+                    photos.push({ src: r.src, date: r.date, angle: r.angle, name: r.name });
+                }
+            });
+            resolve();
+        };
+        req.onerror = () => resolve();
+    });
+}
+
+// ── View switching ──
+function setPhotoView(view) {
+    currentPhotoView = view;
+    ['compare','all','upload'].forEach(v => {
+        document.getElementById('photo-view-' + v).style.display = v === view ? 'block' : 'none';
+        const btn = document.getElementById('view-' + v + '-btn');
+        if (v === view) {
+            btn.style.background = 'var(--accent-blue)'; btn.style.color = '#000'; btn.style.borderColor = 'var(--accent-blue)';
+        } else {
+            btn.style.background = 'transparent'; btn.style.color = 'var(--text-secondary)'; btn.style.borderColor = 'var(--border)';
+        }
+    });
+    if (view === 'compare') updateComparison();
+    if (view === 'all') renderAllPhotos();
+}
+
+// ── Angle toggle for comparison ──
+function setCompareAngle(angle) {
+    currentCompareAngle = angle;
+    document.querySelectorAll('.angle-btn').forEach(b => {
+        if (b.dataset.angle === angle) {
+            b.style.background = 'var(--accent-blue)'; b.style.color = '#000'; b.style.borderColor = 'var(--accent-blue)';
+        } else {
+            b.style.background = 'transparent'; b.style.color = 'var(--text-secondary)'; b.style.borderColor = 'var(--border)';
+        }
+    });
+    updateComparison();
+}
+
+// ── Get unique dates from photos ──
+function getPhotoDates() {
+    const dates = [...new Set(photos.map(p => p.date))].sort();
+    return dates;
+}
+
+function formatDate(d) {
+    const dt = new Date(d + 'T12:00:00');
+    return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// ── Rebuild date dropdowns ──
+function rebuildDateSelects() {
+    const dates = getPhotoDates();
+    const leftSel = document.getElementById('compare-date-left');
+    const rightSel = document.getElementById('compare-date-right');
+
+    const buildOpts = (sel, selectedIdx) => {
+        sel.innerHTML = '';
+        dates.forEach((d, i) => {
+            const opt = document.createElement('option');
+            opt.value = d; opt.textContent = formatDate(d);
+            if (i === selectedIdx) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    };
+
+    if (dates.length >= 2) {
+        buildOpts(leftSel, 0);
+        buildOpts(rightSel, dates.length - 1);
+    } else if (dates.length === 1) {
+        buildOpts(leftSel, 0);
+        buildOpts(rightSel, 0);
+    }
+}
+
+// ── Alignment settings storage (keyed by "leftDate|rightDate|angle") ──
+let alignmentSettings = {};
+
+function getAlignKey() {
+    const ld = document.getElementById('compare-date-left').value;
+    const rd = document.getElementById('compare-date-right').value;
+    return `${ld}|${rd}|${currentCompareAngle}`;
+}
+
+function loadAlignmentForCurrentPair() {
+    const key = getAlignKey();
+    const s = alignmentSettings[key] || { zl: 100, vl: 0, hl: 0, zr: 100, vr: 0, hr: 0 };
+    document.getElementById('zoom-left').value = Math.max(100, s.zl);
+    document.getElementById('vshift-left').value = s.vl;
+    document.getElementById('hshift-left').value = s.hl;
+    document.getElementById('zoom-right').value = Math.max(100, s.zr);
+    document.getElementById('vshift-right').value = s.vr;
+    document.getElementById('hshift-right').value = s.hr;
+    updateAlignLabels();
+}
+
+function updateAlignLabels() {
+    document.getElementById('zoom-left-val').textContent = document.getElementById('zoom-left').value + '%';
+    document.getElementById('vshift-left-val').textContent = document.getElementById('vshift-left').value + 'px';
+    document.getElementById('hshift-left-val').textContent = document.getElementById('hshift-left').value + 'px';
+    document.getElementById('zoom-right-val').textContent = document.getElementById('zoom-right').value + '%';
+    document.getElementById('vshift-right-val').textContent = document.getElementById('vshift-right').value + 'px';
+    document.getElementById('hshift-right-val').textContent = document.getElementById('hshift-right').value + 'px';
+}
+
+function applyAlignment() {
+    updateAlignLabels();
+    const key = getAlignKey();
+    alignmentSettings[key] = {
+        zl: parseInt(document.getElementById('zoom-left').value),
+        vl: parseInt(document.getElementById('vshift-left').value),
+        hl: parseInt(document.getElementById('hshift-left').value),
+        zr: parseInt(document.getElementById('zoom-right').value),
+        vr: parseInt(document.getElementById('vshift-right').value),
+        hr: parseInt(document.getElementById('hshift-right').value)
+    };
+    saveAlignmentToDB();
+
+    // Apply transforms to the inner wrapper divs (not img directly)
+    const leftWrap = document.querySelector('#compare-left-img .photo-align-wrap');
+    const rightWrap = document.querySelector('#compare-right-img .photo-align-wrap');
+    const s = alignmentSettings[key];
+    if (leftWrap) {
+        leftWrap.style.transform = `scale(${s.zl/100}) translate(${s.hl}px, ${s.vl}px)`;
+    }
+    if (rightWrap) {
+        rightWrap.style.transform = `scale(${s.zr/100}) translate(${s.hr}px, ${s.vr}px)`;
+    }
+}
+
+function resetAlignment() {
+    const key = getAlignKey();
+    alignmentSettings[key] = { zl: 100, vl: 0, hl: 0, zr: 100, vr: 0, hr: 0 };
+    loadAlignmentForCurrentPair();
+    applyAlignment();
+}
+
+// Save/load alignment settings to IndexedDB
+async function saveAlignmentToDB() {
+    if (!photoDB) return;
+    try {
+        const tx = photoDB.transaction('photos', 'readwrite');
+        const store = tx.objectStore('photos');
+        // Store alignment as a special record with id='_alignment'
+        const data = { id: '_alignment', type: 'alignment', settings: alignmentSettings };
+        store.put(data);
+    } catch(e) { console.warn('Failed to save alignment:', e); }
+}
+
+async function loadAlignmentFromDB() {
+    if (!photoDB) return;
+    try {
+        const tx = photoDB.transaction('photos', 'readonly');
+        const store = tx.objectStore('photos');
+        const req = store.get('_alignment');
+        req.onsuccess = () => {
+            if (req.result && req.result.settings) {
+                alignmentSettings = req.result.settings;
+            }
+        };
+    } catch(e) { console.warn('Failed to load alignment:', e); }
+}
+
+// ── Update comparison display ──
+function updateComparison() {
+    const leftDate = document.getElementById('compare-date-left').value;
+    const rightDate = document.getElementById('compare-date-right').value;
+    const angle = currentCompareAngle;
+
+    const leftPhoto = photos.find(p => p.date === leftDate && p.angle === angle);
+    const rightPhoto = photos.find(p => p.date === rightDate && p.angle === angle);
+
+    const leftContainer = document.getElementById('compare-left-img');
+    const rightContainer = document.getElementById('compare-right-img');
+    const leftLabel = document.getElementById('compare-left-label');
+    const rightLabel = document.getElementById('compare-right-label');
+    const alignControls = document.getElementById('align-controls');
+
+    leftLabel.textContent = leftDate ? formatDate(leftDate) : '—';
+    rightLabel.textContent = rightDate ? formatDate(rightDate) : '—';
+
+    const hasPhotos = leftPhoto || rightPhoto;
+    alignControls.style.display = hasPhotos ? 'block' : 'none';
+
+    // Load saved alignment for this pair
+    loadAlignmentForCurrentPair();
+    const key = getAlignKey();
+    const s = alignmentSettings[key] || { zl: 100, vl: 0, hl: 0, zr: 100, vr: 0, hr: 0 };
+
+    if (leftPhoto) {
+        leftContainer.innerHTML = `<div class="photo-align-wrap" style="width:100%;height:100%;transform-origin:center center;transform:scale(${s.zl/100}) translate(${s.hl}px, ${s.vl}px);transition:transform 0.15s ease;"><img src="${leftPhoto.src}" style="width:100%;height:100%;object-fit:contain;display:block;"></div>`;
+    } else {
+        leftContainer.innerHTML = `<div style="color:var(--text-muted);font-size:13px;padding:20px;">No ${angle} photo<br>for this date</div>`;
+    }
+
+    if (rightPhoto) {
+        rightContainer.innerHTML = `<div class="photo-align-wrap" style="width:100%;height:100%;transform-origin:center center;transform:scale(${s.zr/100}) translate(${s.hr}px, ${s.vr}px);transition:transform 0.15s ease;"><img src="${rightPhoto.src}" style="width:100%;height:100%;object-fit:contain;display:block;"></div>`;
+    } else {
+        rightContainer.innerHTML = `<div style="color:var(--text-muted);font-size:13px;padding:20px;">No ${angle} photo<br>for this date</div>`;
+    }
+}
+
+// ── Render all photos grid ──
+function renderAllPhotos() {
+    const gallery = document.getElementById('photo-gallery-all');
+    const msg = document.getElementById('no-photos-msg');
+
+    if (photos.length === 0) { gallery.innerHTML = ''; msg.style.display = 'block'; return; }
+    msg.style.display = 'none';
+
+    const byDate = {};
+    photos.forEach(p => { if (!byDate[p.date]) byDate[p.date] = []; byDate[p.date].push(p); });
+
+    let html = '';
+    for (const [date, pics] of Object.entries(byDate).sort()) {
+        html += `<div style="grid-column:1/-1;font-size:12px;color:var(--accent-blue);font-weight:600;margin-top:12px;padding-bottom:4px;border-bottom:1px solid var(--border);">${formatDate(date)}</div>`;
+        pics.sort((a,b) => a.angle.localeCompare(b.angle)).forEach(p => {
+            const idx = photos.indexOf(p);
+            html += `<div style="position:relative;border-radius:10px;overflow:hidden;aspect-ratio:3/4;background:#111;border:1px solid var(--border);">
+                <img src="${p.src}" style="width:100%;height:100%;object-fit:cover;">
+                <div style="position:absolute;bottom:0;left:0;right:0;padding:8px 10px;background:linear-gradient(transparent,rgba(0,0,0,0.8));font-size:11px;color:#fff;font-weight:600;">
+                    ${p.angle.charAt(0).toUpperCase() + p.angle.slice(1)}
+                </div>
+                <div onclick="removePhoto(${idx})" style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,0.6);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;">×</div>
+            </div>`;
+        });
+    }
+    gallery.innerHTML = html;
+}
+
+function removePhoto(idx) {
+    photos.splice(idx, 1);
+    rebuildDateSelects();
+    renderAllPhotos();
+    updateComparison();
+    savePhotosToDB();
+}
+
+// ── Upload handling ──
+function handlePhotoDrop(e) {
+    e.preventDefault();
+    const dropZone = e.target.closest('#photo-drop-zone');
+    if (dropZone) { dropZone.style.borderColor = 'var(--border)'; dropZone.style.background = 'transparent'; }
+    processPhotoFiles(e.dataTransfer.files);
+}
+
+function handlePhotoSelect(e) {
+    processPhotoFiles(e.target.files);
+    e.target.value = '';
+}
+
+function processPhotoFiles(files) {
+    const date = document.getElementById('upload-date').value;
+    const angle = document.getElementById('upload-angle').value;
+
+    for (const file of files) {
+        if (!file.type.startsWith('image/')) continue;
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+            // Replace existing photo for same date+angle
+            const existIdx = photos.findIndex(p => p.date === date && p.angle === angle);
+            if (existIdx >= 0) photos.splice(existIdx, 1);
+
+            photos.push({ src: ev.target.result, date, angle, name: file.name });
+            rebuildDateSelects();
+            renderUploadPreview();
+            updateComparison();
+            savePhotosToDB(); // Persist to IndexedDB
+
+            // Auto-advance angle: front→side→back
+            const angleSelect = document.getElementById('upload-angle');
+            if (angle === 'front') angleSelect.value = 'side';
+            else if (angle === 'side') angleSelect.value = 'back';
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+function renderUploadPreview() {
+    const preview = document.getElementById('upload-preview');
+    if (photos.length === 0) { preview.innerHTML = ''; return; }
+
+    let html = '<div style="grid-column:1/-1;font-size:11px;color:var(--text-muted);margin-bottom:4px;">Loaded photos (' + photos.length + '):</div>';
+    photos.forEach(p => {
+        html += `<div style="position:relative;border-radius:8px;overflow:hidden;aspect-ratio:3/4;background:#111;border:1px solid var(--border);">
+            <img src="${p.src}" style="width:100%;height:100%;object-fit:cover;">
+            <div style="position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:rgba(0,0,0,0.7);font-size:9px;color:#fff;">
+                ${formatDate(p.date).split(',')[0]} · ${p.angle}
+            </div>
+        </div>`;
+    });
+    preview.innerHTML = html;
+}
+
+// ── Try loading photos from graydon-photos/ folder (when served via HTTP) ──
+async function tryLoadLocalPhotos() {
+    if (window.location.protocol === 'file:') return;
+    const dates = ['2026-02-25', '2026-03-06', '2026-03-13', '2026-03-16'];
+    const angles = ['front', 'side', 'back'];
+    for (const date of dates) {
+        for (const angle of angles) {
+            const url = `graydon-photos/${date}_${angle}.jpg`;
+            try {
+                const res = await fetch(url, { method: 'HEAD' });
+                if (res.ok) {
+                    const imgRes = await fetch(url);
+                    const blob = await imgRes.blob();
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        if (!photos.find(p => p.date === date && p.angle === angle)) {
+                            photos.push({ src: e.target.result, date, angle, name: `${date}_${angle}.jpg` });
+                            rebuildDateSelects();
+                            updateComparison();
+                        }
+                    };
+                    reader.readAsDataURL(blob);
+                }
+            } catch(e) { /* file doesn't exist, skip */ }
+        }
+    }
+}
+
+// Init photos on load — IndexedDB first, then try local folder
+document.addEventListener('DOMContentLoaded', async () => {
+    await openPhotoDB();
+    await loadPhotosFromDB();
+    if (photos.length > 0) {
+        rebuildDateSelects();
+        updateComparison();
+        renderUploadPreview();
+    }
+    tryLoadLocalPhotos();
+    rebuildDateSelects();
+});
+</script>
+
+</body>
+</html>
